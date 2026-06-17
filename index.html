@@ -266,6 +266,7 @@
                 <th>TP3</th>
                 <th>Risk</th>
                 <th>RR Logged</th>
+                <th>Gain (%)</th>
                 <th>Status</th>
                 <th>Action</th>
               </tr>
@@ -489,6 +490,10 @@
         <input type="number" id="mRR" placeholder="Leave empty for auto-calc" step="any">
       </div>
       <div class="field">
+        <label>Gain / PnL % (optional)</label>
+        <input type="text" id="mPnL" placeholder="e.g. +3.5 or -1.0">
+      </div>
+      <div class="field">
         <label>Trade Notes</label>
         <textarea id="mNote" placeholder="e.g. Trailed stop loss to entry price + partial profits."></textarea>
       </div>
@@ -522,6 +527,10 @@
       <div class="field" style="margin-top:16px">
         <label>RR Achieved (optional override)</label>
         <input type="number" id="upRR" placeholder="e.g. 3.2" step="any">
+      </div>
+      <div class="field">
+        <label>Gain / PnL % (optional)</label>
+        <input type="text" id="upPnL" placeholder="e.g. +4.2 or -1.0">
       </div>
       <div class="field">
         <label>Trade Execution Notes</label>

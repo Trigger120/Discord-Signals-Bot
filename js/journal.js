@@ -62,7 +62,7 @@ function renderJournal() {
   if (!tbody) return;
   
   if (trades.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="13" class="no-data">No trades logged for this selection.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="no-data">No trades logged for this selection.</td></tr>';
     return;
   }
   
@@ -71,6 +71,18 @@ function renderJournal() {
     var dc = t.dir === 'LONG' ? 'long-txt' : 'short-txt';
     var d = new Date(t.date);
     var ds = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+    
+    var pnlText = '-';
+    var pnlStyle = '';
+    if (t.pnl) {
+      var pnlVal = parseFloat(t.pnl);
+      if (!isNaN(pnlVal)) {
+        pnlText = (pnlVal >= 0 ? '+' : '') + pnlVal.toFixed(2) + '%';
+        pnlStyle = 'color:' + (pnlVal >= 0 ? 'var(--green)' : 'var(--red)') + '; font-weight: 600;';
+      } else {
+        pnlText = t.pnl;
+      }
+    }
     
     return '<tr>' +
       '<td style="color:var(--text-dark)">' + (i + 1) + '</td>' +
@@ -84,6 +96,7 @@ function renderJournal() {
       '<td>' + (t.tp3 || '-') + '</td>' +
       '<td>' + t.risk + '</td>' +
       '<td style="color:var(--gold); font-weight: 700;">' + (t.rr ? t.rr + 'R' : '-') + '</td>' +
+      '<td style="' + pnlStyle + '">' + pnlText + '</td>' +
       '<td><span class="badge ' + bc + '">' + t.status + '</span></td>' +
       '<td><div style="display:flex; gap:6.0px;"><button class="upd-btn" onclick="openUpdate(' + t.id + ')">Update</button><button class="upd-btn" style="border-color:var(--red); color:var(--red);" onclick="deleteTrade(' + t.id + ', event)">Delete</button></div></td>' +
     '</tr>';
@@ -125,6 +138,7 @@ function openUpdate(id) {
   if (t.rr) {
     document.getElementById('upRR').value = t.rr;
   }
+  document.getElementById('upPnL').value = t.pnl || '';
   if (t.note) {
     document.getElementById('upNote').value = t.note;
   }
@@ -158,6 +172,9 @@ function saveUpdate() {
   } else {
     t.rr = null;
   }
+  
+  var pnlVal = document.getElementById('upPnL').value.trim();
+  t.pnl = pnlVal ? pnlVal : null;
   
   t.note = document.getElementById('upNote').value;
   
@@ -203,6 +220,7 @@ function addManualTrade() {
   var statusVal = document.getElementById('mStatus').value;
   var resultVal = document.getElementById('mResult').value;
   var rrVal = document.getElementById('mRR').value;
+  var pnlInputVal = document.getElementById('mPnL').value.trim();
   var noteVal = document.getElementById('mNote').value;
 
   if (!pairVal) {
@@ -238,6 +256,7 @@ function addManualTrade() {
     tp3: tp3Val || '',
     risk: riskVal,
     rr: calculatedRR ? parseFloat(calculatedRR).toFixed(2) : null,
+    pnl: pnlInputVal ? pnlInputVal : null,
     status: statusVal,
     result: resultVal || statusVal,
     note: noteVal || ''
@@ -260,6 +279,7 @@ function addManualTrade() {
   document.getElementById('mTP2').value = '';
   document.getElementById('mTP3').value = '';
   document.getElementById('mRisk').value = '1R';
+  document.getElementById('mPnL').value = '';
   document.getElementById('mNote').value = '';
   document.getElementById('mRR').value = '';
 }
