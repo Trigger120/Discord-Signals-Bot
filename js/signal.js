@@ -473,4 +473,15 @@ window.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() {
     updateTemplateText(true);
   }, 100);
+  
+  var logChk = document.getElementById('logToJournal');
+  var inputs = document.getElementById('journalInputs');
+  if (logChk && inputs) {
+    logChk.checked = false;
+    inputs.style.display = 'none';
+    
+    logChk.addEventListener('change', function() {
+      inputs.style.display = this.checked ? 'block' : 'none';
+    });
+  }
 });
