@@ -136,6 +136,88 @@ function buildMsg(pingRole) {
   return msg;
 }
 
+// Scan custom text message and parse trading metrics using regex
+function parseTextMessage(text) {
+  var pair = 'XAUUSD';
+  var dir = 'LONG';
+  var entry = '';
+  var sl = '';
+  var tp1 = '';
+  var tp2 = '';
+  var tp3 = '';
+  var risk = '1R';
+  
+  // 1. Pair: look for $word (e.g. $XAUUSD or $BTCUSDT) or plain text matching predefined list
+  var pairMatch = text.match(/\$([A-Za-z0-9]+)/);
+  if (pairMatch) {
+    pair = pairMatch[1].toUpperCase();
+  } else {
+    var known = ['XAUUSD', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'EURUSD', 'NAS100', 'US30', 'XAGUSD'];
+    for (var i = 0; i < known.length; i++) {
+      var re = new RegExp('\\b' + known[i] + '\\b', 'i');
+      if (re.test(text)) {
+        pair = known[i];
+        break;
+      }
+    }
+  }
+  
+  // 2. Direction: look for SHORT/SELL vs LONG/BUY
+  if (/short|sell/i.test(text)) {
+    dir = 'SHORT';
+  } else if (/long|buy/i.test(text)) {
+    dir = 'LONG';
+  }
+  
+  // 3. Entry Price: e.g., "Entry: 2320.5" or "Entry : 2320"
+  var entryMatch = text.match(/(?:entry|ent)(?:\s*[:\-=\s]\s*|\s+)(\d+(?:\.\d+)?)/i);
+  if (entryMatch) {
+    entry = entryMatch[1];
+  }
+  
+  // 4. Stop Loss: e.g., "Stop Loss: 2310" or "SL: 2310"
+  var slMatch = text.match(/(?:stop\s*loss|sl|stop)(?:\s*[:\-=\s]\s*|\s+)(\d+(?:\.\d+)?)/i);
+  if (slMatch) {
+    sl = slMatch[1];
+  }
+  
+  // 5. Take Profits: e.g. "TP1: 2340" or "TP 1: 2340" or "TP1 - 2340"
+  var tp1Match = text.match(/(?:tp1|tp\s+1|target\s+1)(?:\s*[:\-=\s]\s*|\s+)(\d+(?:\.\d+)?|tbd)/i);
+  if (tp1Match) {
+    tp1 = tp1Match[1].toUpperCase();
+  }
+  var tp2Match = text.match(/(?:tp2|tp\s+2|target\s+2)(?:\s*[:\-=\s]\s*|\s+)(\d+(?:\.\d+)?|tbd)/i);
+  if (tp2Match) {
+    tp2 = tp2Match[1].toUpperCase();
+  }
+  var tp3Match = text.match(/(?:tp3|tp\s+3|target\s+3)(?:\s*[:\-=\s]\s*|\s+)(\d+(?:\.\d+)?|tbd)/i);
+  if (tp3Match) {
+    tp3 = tp3Match[1].toUpperCase();
+  }
+  
+  // 6. Risk Size: e.g., "Risk: 0.5R" or "Risk 1R"
+  var riskMatch = text.match(/risk(?:\s*[:\-=\s]\s*|\s+)(\d+(?:\.\d+)?%?R?)/i);
+  if (riskMatch) {
+    risk = riskMatch[1].toUpperCase();
+  } else {
+    var rMatch = text.match(/\b(\d+(?:\.\d+)?R)\b/i);
+    if (rMatch) {
+      risk = rMatch[1].toUpperCase();
+    }
+  }
+  
+  return {
+    pair: pair,
+    dir: dir,
+    entry: entry,
+    sl: sl,
+    tp1: tp1,
+    tp2: tp2,
+    tp3: tp3,
+    risk: risk
+  };
+}
+
 // Generate Discord Embed Structure objects
 function buildEmbedPayload(w) {
   var pair = S.pair || '???';
@@ -406,33 +488,54 @@ async function sendSignal() {
     // Optional journal logging check
     var logToJournal = document.getElementById('logToJournal') ? document.getElementById('logToJournal').checked : false;
     if (logToJournal) {
-      var e = document.getElementById('entry').value;
-      var s = document.getElementById('sl').value;
-      var t1 = S.tbds[1] ? 'TBD' : document.getElementById('tp1').value;
-      var t2 = S.tbds[2] ? 'TBD' : document.getElementById('tp2').value;
-      var t3 = S.tbds[3] ? 'TBD' : document.getElementById('tp3').value;
-      var rr1 = calcRR(parseFloat(e), parseFloat(s), parseFloat(t1));
+      var e, s, t1, t2, t3, pair, dir, risk;
       
-      S.trades.unshift({
-        id: Date.now(),
-        date: new Date().toISOString(),
-        pair: S.pair,
-        dir: S.dir || 'LONG',
-        entry: e,
-        sl: s,
-        tp1: t1,
-        tp2: t2,
-        tp3: t3,
-        risk: S.risk,
-        rr: rr1 ? parseFloat(rr1).toFixed(2) : null,
-        status: 'OPEN',
-        result: '',
-        note: ''
-      });
-      saveTrades();
-      if (typeof populateMonths === 'function') populateMonths();
-      if (typeof renderJournal === 'function') renderJournal();
-      if (typeof renderDashboard === 'function') renderDashboard();
+      if (S.format === 'text') {
+        var parsed = parseTextMessage(rawMsg);
+        pair = parsed.pair;
+        dir = parsed.dir;
+        e = parsed.entry;
+        s = parsed.sl;
+        t1 = parsed.tp1;
+        t2 = parsed.tp2;
+        t3 = parsed.tp3;
+        risk = parsed.risk;
+      } else {
+        pair = S.pair;
+        dir = S.dir || 'LONG';
+        e = document.getElementById('entry').value;
+        s = document.getElementById('sl').value;
+        t1 = S.tbds[1] ? 'TBD' : document.getElementById('tp1').value;
+        t2 = S.tbds[2] ? 'TBD' : document.getElementById('tp2').value;
+        t3 = S.tbds[3] ? 'TBD' : document.getElementById('tp3').value;
+        risk = S.risk;
+      }
+      
+      if (e) {
+        var rr1 = calcRR(parseFloat(e), parseFloat(s), parseFloat(t1));
+        S.trades.unshift({
+          id: Date.now(),
+          date: new Date().toISOString(),
+          pair: pair,
+          dir: dir,
+          entry: e,
+          sl: s,
+          tp1: t1,
+          tp2: t2,
+          tp3: t3,
+          risk: risk,
+          rr: rr1 ? parseFloat(rr1).toFixed(2) : null,
+          status: 'OPEN',
+          result: '',
+          note: ''
+        });
+        saveTrades();
+        if (typeof populateMonths === 'function') populateMonths();
+        if (typeof renderJournal === 'function') renderJournal();
+        if (typeof renderDashboard === 'function') renderDashboard();
+      } else {
+        toast('Signal sent, but entry price not found in text - trade not logged.', 'err');
+      }
     }
     
     toast('Sent to ' + ok + ' server' + (ok > 1 ? 's' : '') + '!', 'ok');
