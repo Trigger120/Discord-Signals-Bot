@@ -85,7 +85,7 @@ function renderJournal() {
       '<td>' + t.risk + '</td>' +
       '<td style="color:var(--gold); font-weight: 700;">' + (t.rr ? t.rr + 'R' : '-') + '</td>' +
       '<td><span class="badge ' + bc + '">' + t.status + '</span></td>' +
-      '<td><button class="upd-btn" onclick="openUpdate(' + t.id + ')">Update</button></td>' +
+      '<td><div style="display:flex; gap:6.0px;"><button class="upd-btn" onclick="openUpdate(' + t.id + ')">Update</button><button class="upd-btn" style="border-color:var(--red); color:var(--red);" onclick="deleteTrade(' + t.id + ', event)">Delete</button></div></td>' +
     '</tr>';
   }).join('');
 }
@@ -262,4 +262,19 @@ function addManualTrade() {
   document.getElementById('mRisk').value = '1R';
   document.getElementById('mNote').value = '';
   document.getElementById('mRR').value = '';
+}
+
+// Delete a trade log from the database
+function deleteTrade(id, event) {
+  if (event) event.stopPropagation();
+  if (confirm('Are you sure you want to delete this trade log?')) {
+    S.trades = S.trades.filter(function(t) {
+      return t.id !== id;
+    });
+    saveTrades();
+    populateMonths();
+    renderJournal();
+    renderDashboard();
+    toast('Trade log deleted!', 'ok');
+  }
 }
