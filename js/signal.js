@@ -1,4 +1,4 @@
-// Direction toggle (LONG/SHORT)
+// Direction toggle (LONG/SHORT) and update template text
 function setDir(d) {
   S.dir = d;
   document.querySelectorAll('.dir-btn').forEach(function(b) {
@@ -6,10 +6,11 @@ function setDir(d) {
   });
   var btn = document.querySelector('.dir-btn.' + (d === 'LONG' ? 'long' : 'short'));
   if (btn) btn.classList.add('active');
-  updatePreview();
+  
+  updateTemplateText(false);
 }
 
-// Select trading pair from predefined list pills
+// Select trading pair from predefined list pills and update template text
 function setPair(el, p) {
   document.querySelectorAll('.pill').forEach(function(x) {
     x.classList.remove('active');
@@ -20,7 +21,7 @@ function setPair(el, p) {
   var customPair = document.getElementById('customPair');
   if (customPair) customPair.value = '';
   
-  updatePreview();
+  updateTemplateText(false);
 }
 
 // Custom pair input text field handler
@@ -31,23 +32,46 @@ function onCustomPair(v) {
     });
     S.pair = v.toUpperCase();
   } else {
-    // Revert to XAUUSD or default active pill
     var activePill = document.querySelector('.pill.active');
     if (activePill) {
       S.pair = activePill.textContent;
     }
   }
-  updatePreview();
+  updateTemplateText(false);
 }
 
-// Set risk per trade level
+// Set risk per trade level and update template text
 function setRisk(el, r) {
   S.risk = r;
   document.querySelectorAll('.risk-btn').forEach(function(b) {
     b.classList.remove('active');
   });
   el.classList.add('active');
+  updateTemplateText(false);
+}
+
+// Update the template text in the textarea
+function updateTemplateText(force) {
+  var box = document.getElementById('signalMessage');
+  if (!box) return;
+  
+  var pair = S.pair || 'XAUUSD';
+  var dir = S.dir || 'LONG';
+  var risk = S.risk || '0.5R';
+  
+  var defaultText = '$' + pair + '\n\n' + dir + '\n\nRisk: ' + risk + '\n\nEntry : \nStop Loss:\n\nTake profits:\n';
+  
+  // Update if empty, if forced, or if it matches the base template pattern
+  if (force || !box.value || (box.value.startsWith('$') && (box.value.includes('Entry :') || box.value.includes('Stop Loss:')))) {
+    box.value = defaultText;
+  }
   updatePreview();
+}
+
+// Reset signal text area back to the template text
+function resetToTemplate() {
+  updateTemplateText(true);
+  toast('Template reset!', 'ok');
 }
 
 // Toggle TBD check status on Take Profit prices
@@ -101,34 +125,14 @@ function fmtRole(r) {
   return d ? '<@&' + d + '>' : '';
 }
 
-// Format template tags replacing placeholder variables
+// Get raw message contents from text area and format role ping
 function buildMsg(pingRole) {
-  var pair = S.pair || '???';
-  var dir = S.dir || '???';
-  var entry = document.getElementById('entry').value || '???';
-  var sl = document.getElementById('sl').value || '???';
-  
-  // Format Take Profit lines
-  var t1 = document.getElementById('tp1').value;
-  var t2 = document.getElementById('tp2').value;
-  var t3 = document.getElementById('tp3').value;
-  var tpLines = '';
-  if (S.tbds[1] || t1) tpLines += '\nTP1: ' + (S.tbds[1] ? 'TBD' : t1);
-  if (S.tbds[2] || t2) tpLines += '\nTP2: ' + (S.tbds[2] ? 'TBD' : t2);
-  if (S.tbds[3] || t3) tpLines += '\nTP3: ' + (S.tbds[3] ? 'TBD' : t3);
-  
-  var risk = S.risk || '0.25R';
+  var box = document.getElementById('signalMessage');
+  var msg = box ? box.value : '';
   var ping = fmtRole(pingRole);
-  
-  var msg = S.template;
-  msg = msg.replace(/\$pair|\{pair\}/gi, '$' + pair);
-  msg = msg.replace(/\$dir|\{dir\}/gi, dir);
-  msg = msg.replace(/\$entry|\{entry\}/gi, entry);
-  msg = msg.replace(/\$sl|\{sl\}/gi, sl);
-  msg = msg.replace(/\$tps|\{tps\}/gi, tpLines);
-  msg = msg.replace(/\$risk|\{risk\}/gi, risk);
-  msg = msg.replace(/\$ping|\{ping\}/gi, ping);
-  
+  if (ping) {
+    msg += '\n\n' + ping;
+  }
   return msg;
 }
 
@@ -161,7 +165,7 @@ function buildEmbedPayload(w) {
     { name: 'Risk Size ⚠️', value: '`' + risk + '`', inline: true },
     { name: 'Entry Price 🎯', value: '`' + entry + '`', inline: true },
     { name: 'Stop Loss 🛑', value: '`' + sl + '`', inline: true },
-    { name: 'Trade Status ⚙️', value: '🏃 Active', inline: true },
+    { name: 'Trade Status ⚙️', value: '跑 Active', inline: true },
     { name: 'Take Profit 1 🎯', value: tp1Str, inline: false }
   ];
   
@@ -213,7 +217,8 @@ function updatePreview() {
   }
   
   if (S.format === 'text') {
-    box.textContent = buildMsg('@role');
+    var rawMsg = document.getElementById('signalMessage') ? document.getElementById('signalMessage').value : '';
+    box.textContent = rawMsg || 'Write signal message details...';
     box.style.background = '#090d16';
     box.style.border = '1px solid rgba(255, 255, 255, 0.05)';
     box.style.padding = '16px';
@@ -338,13 +343,13 @@ function getSelServers() {
 
 // Post trade signal details using fetch
 async function sendSignal() {
-  if (!S.dir) {
-    toast('Select LONG or SHORT!', 'err');
+  var rawMsg = document.getElementById('signalMessage') ? document.getElementById('signalMessage').value : '';
+  if (S.format === 'text' && !rawMsg.trim()) {
+    toast('Please enter a signal message!', 'err');
     return;
   }
-  var entryVal = document.getElementById('entry').value;
-  if (!entryVal) {
-    toast('Enter entry price!', 'err');
+  if (S.format === 'embed' && !document.getElementById('entry').value) {
+    toast('Enter entry price for the Embed fields!', 'err');
     return;
   }
   
@@ -357,13 +362,6 @@ async function sendSignal() {
   var btn = document.getElementById('sendBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> SENDING...';
-  
-  var e = entryVal;
-  var s = document.getElementById('sl').value;
-  var t1 = S.tbds[1] ? 'TBD' : document.getElementById('tp1').value;
-  var t2 = S.tbds[2] ? 'TBD' : document.getElementById('tp2').value;
-  var t3 = S.tbds[3] ? 'TBD' : document.getElementById('tp3').value;
-  var rr1 = calcRR(parseFloat(e), parseFloat(s), parseFloat(t1));
   
   var results = await Promise.allSettled(sel.map(async function(w) {
     var bodyData;
@@ -405,29 +403,39 @@ async function sendSignal() {
   }).length;
   
   if (ok > 0) {
-    // Append to trade logs
-    S.trades.unshift({
-      id: Date.now(),
-      date: new Date().toISOString(),
-      pair: S.pair,
-      dir: S.dir,
-      entry: e,
-      sl: s,
-      tp1: t1,
-      tp2: t2,
-      tp3: t3,
-      risk: S.risk,
-      rr: rr1,
-      status: 'OPEN',
-      result: '',
-      note: ''
-    });
-    saveTrades();
-    if (typeof populateMonths === 'function') populateMonths();
-    if (typeof renderJournal === 'function') renderJournal();
-    if (typeof renderDashboard === 'function') renderDashboard();
+    // Optional journal logging check
+    var logToJournal = document.getElementById('logToJournal') ? document.getElementById('logToJournal').checked : false;
+    if (logToJournal) {
+      var e = document.getElementById('entry').value;
+      var s = document.getElementById('sl').value;
+      var t1 = S.tbds[1] ? 'TBD' : document.getElementById('tp1').value;
+      var t2 = S.tbds[2] ? 'TBD' : document.getElementById('tp2').value;
+      var t3 = S.tbds[3] ? 'TBD' : document.getElementById('tp3').value;
+      var rr1 = calcRR(parseFloat(e), parseFloat(s), parseFloat(t1));
+      
+      S.trades.unshift({
+        id: Date.now(),
+        date: new Date().toISOString(),
+        pair: S.pair,
+        dir: S.dir || 'LONG',
+        entry: e,
+        sl: s,
+        tp1: t1,
+        tp2: t2,
+        tp3: t3,
+        risk: S.risk,
+        rr: rr1 ? parseFloat(rr1).toFixed(2) : null,
+        status: 'OPEN',
+        result: '',
+        note: ''
+      });
+      saveTrades();
+      if (typeof populateMonths === 'function') populateMonths();
+      if (typeof renderJournal === 'function') renderJournal();
+      if (typeof renderDashboard === 'function') renderDashboard();
+    }
     
-    toast('Sent to ' + ok + ' server' + (ok > 1 ? 's' : '') + ' and logged!', 'ok');
+    toast('Sent to ' + ok + ' server' + (ok > 1 ? 's' : '') + '!', 'ok');
     
     // Clear inputs after successful broadcast
     document.getElementById('entry').value = '';
@@ -441,13 +449,7 @@ async function sendSignal() {
       if (S.tbds[k]) toggleTBD(k);
     }
     
-    // Clear UI state
-    S.dir = '';
-    document.querySelectorAll('.dir-btn').forEach(function(b) {
-      b.classList.remove('active');
-    });
-    
-    // Remove screenshots
+    // Reset screenshots
     rmSS({ stopPropagation: function() {} });
     
     // Reset RR displays
@@ -455,11 +457,20 @@ async function sendSignal() {
     document.getElementById('rr2').textContent = '-';
     document.getElementById('rr3').textContent = '-';
     
-    updatePreview();
+    // Clear signal text box and re-init template
+    document.getElementById('signalMessage').value = '';
+    updateTemplateText(true);
   } else {
-    toast('All sends failed. Check webhook configurations or network settings.', 'err');
+    toast('All sends failed. Check webhook URLs & network settings.', 'err');
   }
   
   btn.disabled = false;
   btn.innerHTML = 'SEND SIGNAL';
 }
+
+// Initial update on load
+window.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    updateTemplateText(true);
+  }, 100);
+});

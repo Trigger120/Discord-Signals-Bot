@@ -1553,3 +1553,13 @@ textarea {
     padding: 0 12px;
   }
 }
+
+/* Checkbox Style Overrides */
+input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  cursor: pointer;
+  accent-color: var(--gold);
+  display: inline-block;
+  vertical-align: middle;
+}

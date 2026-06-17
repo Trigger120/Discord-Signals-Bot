@@ -177,3 +177,89 @@ function saveUpdate() {
   renderDashboard();
   toast('Trade updated successfully!', 'ok');
 }
+
+// Open manual trade logger modal with default date set to today
+function openAddManualTrade() {
+  var today = new Date();
+  var dd = String(today.getDate()).padStart(2, '0');
+  var mm = String(today.getMonth() + 1).padStart(2, '0');
+  var yyyy = today.getFullYear();
+  document.getElementById('mDate').value = yyyy + '-' + mm + '-' + dd;
+  
+  openModal('addTradeModal');
+}
+
+// Read inputs and add trade manually into trades database
+function addManualTrade() {
+  var dateVal = document.getElementById('mDate').value;
+  var pairVal = document.getElementById('mPair').value.trim().toUpperCase();
+  var dirVal = document.getElementById('mDir').value;
+  var entryVal = document.getElementById('mEntry').value;
+  var slVal = document.getElementById('mSL').value;
+  var tp1Val = document.getElementById('mTP1').value;
+  var tp2Val = document.getElementById('mTP2').value;
+  var tp3Val = document.getElementById('mTP3').value;
+  var riskVal = document.getElementById('mRisk').value || '1R';
+  var statusVal = document.getElementById('mStatus').value;
+  var resultVal = document.getElementById('mResult').value;
+  var rrVal = document.getElementById('mRR').value;
+  var noteVal = document.getElementById('mNote').value;
+
+  if (!pairVal) {
+    toast('Please specify a pair!', 'err');
+    return;
+  }
+  if (!entryVal) {
+    toast('Please enter entry price!', 'err');
+    return;
+  }
+
+  var dateObj = dateVal ? new Date(dateVal) : new Date();
+  
+  var calculatedRR = null;
+  if (rrVal && !isNaN(parseFloat(rrVal))) {
+    calculatedRR = parseFloat(rrVal);
+  } else {
+    var tpVal = tp1Val || tp2Val || tp3Val;
+    if (tpVal) {
+      calculatedRR = calcRR(parseFloat(entryVal), parseFloat(slVal), parseFloat(tpVal));
+    }
+  }
+
+  var newTrade = {
+    id: Date.now(),
+    date: dateObj.toISOString(),
+    pair: pairVal,
+    dir: dirVal,
+    entry: entryVal,
+    sl: slVal || '',
+    tp1: tp1Val || '',
+    tp2: tp2Val || '',
+    tp3: tp3Val || '',
+    risk: riskVal,
+    rr: calculatedRR ? parseFloat(calculatedRR).toFixed(2) : null,
+    status: statusVal,
+    result: resultVal || statusVal,
+    note: noteVal || ''
+  };
+
+  S.trades.unshift(newTrade);
+  saveTrades();
+
+  closeModal('addTradeModal');
+  populateMonths();
+  renderJournal();
+  renderDashboard();
+  toast('Manual trade logged successfully!', 'ok');
+
+  // Reset form inputs
+  document.getElementById('mPair').value = 'XAUUSD';
+  document.getElementById('mEntry').value = '';
+  document.getElementById('mSL').value = '';
+  document.getElementById('mTP1').value = '';
+  document.getElementById('mTP2').value = '';
+  document.getElementById('mTP3').value = '';
+  document.getElementById('mRisk').value = '1R';
+  document.getElementById('mNote').value = '';
+  document.getElementById('mRR').value = '';
+}

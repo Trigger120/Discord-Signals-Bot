@@ -15,7 +15,10 @@ window.S = {
   
   // Advanced settings default values
   format: 'embed', // 'embed' or 'text'
-  template: '$pair\n\n$dir\n\nEntry: $entry\nStop Loss: $sl\n\nTake Profits:$tps\n\nRisk: $risk\n\nRisk Free at 1RR\n\n$ping'
+  template: '$pair\n\n$dir\n\nEntry: $entry\nStop Loss: $sl\n\nTake Profits:$tps\n\nRisk: $risk\n\nRisk Free at 1RR\n\n$ping',
+  
+  // Cloud sync ID
+  syncId: ''
 };
 
 var DEF_PW = 'trigger2024';
@@ -25,18 +28,150 @@ function getPW() {
   return localStorage.getItem('txbt_pw') || DEF_PW;
 }
 
-// Save active global state webhook/trade logs to local storage
+// Generate secure unguessable Sync ID
+function genSyncId() {
+  var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  var id = 'txbt_';
+  for (var i = 0; i < 24; i++) {
+    id += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return id;
+}
+
+// Save active global state to local storage & push to cloud
 function saveWH() {
   localStorage.setItem('txbt_wh', JSON.stringify(S.webhooks));
+  updateTimestampAndPush();
 }
 
 function saveTrades() {
   localStorage.setItem('txbt_tr', JSON.stringify(S.trades));
+  updateTimestampAndPush();
 }
 
 function saveAdvancedSettings() {
   localStorage.setItem('txbt_format', S.format);
   localStorage.setItem('txbt_template', S.template);
+  updateTimestampAndPush();
+}
+
+function updateTimestampAndPush() {
+  var now = Date.now();
+  localStorage.setItem('txbt_last_updated', now);
+  pushData();
+}
+
+// Cloud synchronization logic (Push)
+async function pushData() {
+  if (!S.syncId) return;
+  var data = {
+    webhooks: S.webhooks,
+    trades: S.trades,
+    format: S.format,
+    template: S.template,
+    lastUpdated: parseInt(localStorage.getItem('txbt_last_updated') || Date.now())
+  };
+  
+  try {
+    await fetch('https://kvdb.io/' + S.syncId + '/data', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  } catch (e) {
+    console.warn('Cloud sync push failed (offline or network restriction):', e);
+  }
+}
+
+// Cloud synchronization logic (Pull)
+async function pullData() {
+  if (!S.syncId) return;
+  try {
+    var res = await fetch('https://kvdb.io/' + S.syncId + '/data');
+    if (res.status === 404) {
+      // Key doesn't exist yet on cloud, initialize it
+      await pushData();
+      return;
+    }
+    if (!res.ok) return;
+    var cloud = await res.json();
+    var localLast = parseInt(localStorage.getItem('txbt_last_updated') || '0');
+    
+    if (cloud.lastUpdated && cloud.lastUpdated > localLast) {
+      // Overwrite local state with cloud state
+      S.webhooks = cloud.webhooks || [];
+      S.trades = cloud.trades || [];
+      S.format = cloud.format || S.format;
+      S.template = cloud.template || S.template;
+      
+      localStorage.setItem('txbt_wh', JSON.stringify(S.webhooks));
+      localStorage.setItem('txbt_tr', JSON.stringify(S.trades));
+      localStorage.setItem('txbt_format', S.format);
+      localStorage.setItem('txbt_template', S.template);
+      localStorage.setItem('txbt_last_updated', cloud.lastUpdated);
+      
+      // Reload UI components
+      if (typeof renderServers === 'function') renderServers();
+      if (typeof populateMonths === 'function') populateMonths();
+      if (typeof renderJournal === 'function') renderJournal();
+      if (typeof renderDashboard === 'function') renderDashboard();
+      if (typeof updatePreview === 'function') updatePreview();
+    } else if (localLast > (cloud.lastUpdated || 0)) {
+      // Local state is newer, push to cloud
+      await pushData();
+    }
+  } catch (e) {
+    console.warn('Cloud sync pull failed:', e);
+  }
+}
+
+// Connect device to an existing cloud Sync ID session
+async function connectSyncId(newSyncId) {
+  if (!newSyncId || !newSyncId.startsWith('txbt_')) {
+    toast('Invalid Sync ID format. Must start with txbt_', 'err');
+    return false;
+  }
+  
+  try {
+    var res = await fetch('https://kvdb.io/' + newSyncId + '/data');
+    if (!res.ok && res.status !== 404) {
+      toast('Failed to reach cloud database.', 'err');
+      return false;
+    }
+    
+    S.syncId = newSyncId;
+    localStorage.setItem('txbt_sync_id', S.syncId);
+    
+    if (res.status === 404) {
+      // Create new session online and push current local data to it
+      await pushData();
+      toast('Sync Connected! Uploaded data to new session.', 'ok');
+    } else {
+      // Session exists, pull cloud data and replace local
+      var cloud = await res.json();
+      S.webhooks = cloud.webhooks || [];
+      S.trades = cloud.trades || [];
+      S.format = cloud.format || S.format;
+      S.template = cloud.template || S.template;
+      
+      localStorage.setItem('txbt_wh', JSON.stringify(S.webhooks));
+      localStorage.setItem('txbt_tr', JSON.stringify(S.trades));
+      localStorage.setItem('txbt_format', S.format);
+      localStorage.setItem('txbt_template', S.template);
+      localStorage.setItem('txbt_last_updated', cloud.lastUpdated || Date.now());
+      
+      loadData();
+      toast('Sync Connected! Merged data from cloud.', 'ok');
+    }
+    
+    // Update Sync Modal display fields
+    var sidVal = document.getElementById('syncIdVal');
+    if (sidVal) sidVal.value = S.syncId;
+    
+    return true;
+  } catch (e) {
+    toast('Connection failed. Verify internet or VPN.', 'err');
+    return false;
+  }
 }
 
 // Router navigation between sections
@@ -76,7 +211,7 @@ function toast(msg, type) {
   var t = document.getElementById('toast');
   t.textContent = msg;
   t.className = 'toast show ' + (type || 'ok');
-  // Clear any existing timeouts if possible, or just set it
+  
   if (t.dataset.timeoutId) {
     clearTimeout(parseInt(t.dataset.timeoutId));
   }
@@ -88,6 +223,17 @@ function toast(msg, type) {
 
 // Load configurations and log files from local storage on startup
 function loadData() {
+  // Check and setup Sync ID
+  S.syncId = localStorage.getItem('txbt_sync_id') || '';
+  if (!S.syncId) {
+    S.syncId = genSyncId();
+    localStorage.setItem('txbt_sync_id', S.syncId);
+  }
+  
+  // Set in modal input if exists
+  var sidVal = document.getElementById('syncIdVal');
+  if (sidVal) sidVal.value = S.syncId;
+
   try {
     S.webhooks = JSON.parse(localStorage.getItem('txbt_wh') || '[]');
   } catch (e) {
@@ -102,7 +248,7 @@ function loadData() {
   S.format = localStorage.getItem('txbt_format') || 'embed';
   S.template = localStorage.getItem('txbt_template') || S.template;
 
-  // Initialize advanced settings input fields in modals/settings
+  // Initialize advanced settings input fields
   var templateInp = document.getElementById('templateInput');
   if (templateInp) templateInp.value = S.template;
   
@@ -116,6 +262,9 @@ function loadData() {
   if (typeof renderJournal === 'function') renderJournal();
   if (typeof renderDashboard === 'function') renderDashboard();
   if (typeof updatePreview === 'function') updatePreview();
+
+  // Pull latest updates from cloud (background)
+  pullData();
 }
 
 // Export local data to external backup file (JSON format)
@@ -150,19 +299,23 @@ function importBackup(event) {
       var imported = JSON.parse(e.target.result);
       if (imported.webhooks && Array.isArray(imported.webhooks)) {
         S.webhooks = imported.webhooks;
-        saveWH();
+        localStorage.setItem('txbt_wh', JSON.stringify(S.webhooks));
       }
       if (imported.trades && Array.isArray(imported.trades)) {
         S.trades = imported.trades;
-        saveTrades();
+        localStorage.setItem('txbt_tr', JSON.stringify(S.trades));
       }
       if (imported.format) {
         S.format = imported.format;
+        localStorage.setItem('txbt_format', S.format);
       }
       if (imported.template) {
         S.template = imported.template;
+        localStorage.setItem('txbt_template', S.template);
       }
-      saveAdvancedSettings();
+      
+      localStorage.setItem('txbt_last_updated', Date.now());
+      pushData();
       
       // Reload UI components
       loadData();
@@ -177,7 +330,6 @@ function importBackup(event) {
 
 // Global initialization logic on body load
 window.addEventListener('DOMContentLoaded', function() {
-  // Modal overlay click listeners for auto-dismiss
   document.querySelectorAll('.modal-overlay').forEach(function(el) {
     el.addEventListener('click', function(e) {
       if (e.target === el) {

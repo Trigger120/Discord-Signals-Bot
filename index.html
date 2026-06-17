@@ -46,6 +46,11 @@
           <button class="nav-btn" onclick="navigate('dashboard')">Dashboard</button>
         </nav>
         <div class="hdr-btns">
+          <!-- Cloud Sync -->
+          <button class="hbtn" onclick="openModal('syncModal')" title="Sync Across Devices">
+            <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+            <span>Sync</span>
+          </button>
           <!-- Backup actions -->
           <button class="hbtn" onclick="exportBackup()" title="Export Backup Data">
             <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
@@ -134,73 +139,74 @@
 
         <!-- Right Panel -->
         <div>
-          <!-- Levels Card -->
+          <!-- Custom Message Text Area -->
           <div class="card">
             <div class="card-title">
-              <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg> Trading Levels
+              <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg> Signal Message Editor
             </div>
-            <div class="g2">
-              <div class="field">
-                <label>Entry Price</label>
-                <input type="number" id="entry" placeholder="0.00" step="any" oninput="recalc()">
-              </div>
-              <div class="field">
-                <label>Stop Loss</label>
-                <input type="number" id="sl" placeholder="0.00" step="any" oninput="recalc()">
-              </div>
-            </div>
-            <label style="margin-bottom:8px">Take Profits</label>
-            <div class="tp-row">
-              <div>
-                <label>TP 1</label>
-                <input type="number" id="tp1" placeholder="0.00" step="any" oninput="recalc()">
-              </div>
-              <button class="tbd-btn" id="tbd1" onclick="toggleTBD(1)">TBD</button>
-            </div>
-            <div class="tp-row">
-              <div>
-                <label>TP 2</label>
-                <input type="number" id="tp2" placeholder="0.00" step="any" oninput="recalc()">
-              </div>
-              <button class="tbd-btn" id="tbd2" onclick="toggleTBD(2)">TBD</button>
-            </div>
-            <div class="tp-row">
-              <div>
-                <label>TP 3</label>
-                <input type="number" id="tp3" placeholder="0.00" step="any" oninput="recalc()">
-              </div>
-              <button class="tbd-btn" id="tbd3" onclick="toggleTBD(3)">TBD</button>
-            </div>
-            <div class="rr-row">
-              <div class="rr-box">
-                <div class="rr-lbl">RR TP1</div>
-                <div class="rr-val" id="rr1">-</div>
-              </div>
-              <div class="rr-box">
-                <div class="rr-lbl">RR TP2</div>
-                <div class="rr-val" id="rr2">-</div>
-              </div>
-              <div class="rr-box">
-                <div class="rr-lbl">RR TP3</div>
-                <div class="rr-val" id="rr3">-</div>
+            <textarea id="signalMessage" style="min-height: 200px; font-family:var(--font-mono); font-size:13px; line-height:1.6;" placeholder="Draft signal message..."></textarea>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px">
+              <button class="upd-btn" onclick="resetToTemplate()">Reset to Template</button>
+              <div class="format-toggle" style="margin:0; padding:2px">
+                <button class="format-btn active" data-format="embed" onclick="setFormat('embed')">EMBED</button>
+                <button class="format-btn" data-format="text" onclick="setFormat('text')">PLAIN TEXT</button>
               </div>
             </div>
           </div>
 
-          <!-- Format & Template Card -->
+          <!-- Journal Logging Card (Optional Fields) -->
           <div class="card">
-            <div class="card-title">
-              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg> Format & Template
+            <div class="card-title" style="margin-bottom:12px; display:flex; align-items:center;">
+              <input type="checkbox" id="logToJournal" checked style="width:auto; margin-right:8px; display:inline-block; vertical-align:middle; cursor:pointer">
+              <label style="display:inline-block; margin:0; cursor:pointer" for="logToJournal">Auto-Log to Trade Journal</label>
             </div>
-            <label>Delivery Format</label>
-            <div class="format-toggle">
-              <button class="format-btn active" data-format="embed" onclick="setFormat('embed')">DISCORD EMBED</button>
-              <button class="format-btn" data-format="text" onclick="setFormat('text')">PLAIN TEXT</button>
-            </div>
-            <div id="templateSettings" style="display:none;">
-              <label style="margin-top:10px;">Plain Text Custom Template</label>
-              <textarea id="templateInput" oninput="S.template=this.value;saveAdvancedSettings();updatePreview();" placeholder="Customize plain text format..."></textarea>
-              <div class="hint">Tags: $pair, $dir, $entry, $sl, $tps, $risk, $ping</div>
+            <div id="journalInputs">
+              <div class="g2">
+                <div class="field">
+                  <label>Entry Price</label>
+                  <input type="number" id="entry" placeholder="0.00" step="any" oninput="recalc()">
+                </div>
+                <div class="field">
+                  <label>Stop Loss</label>
+                  <input type="number" id="sl" placeholder="0.00" step="any" oninput="recalc()">
+                </div>
+              </div>
+              <label style="margin-bottom:8px">Take Profits</label>
+              <div class="tp-row">
+                <div>
+                  <label>TP 1</label>
+                  <input type="number" id="tp1" placeholder="0.00" step="any" oninput="recalc()">
+                </div>
+                <button class="tbd-btn" id="tbd1" onclick="toggleTBD(1)">TBD</button>
+              </div>
+              <div class="tp-row">
+                <div>
+                  <label>TP 2</label>
+                  <input type="number" id="tp2" placeholder="0.00" step="any" oninput="recalc()">
+                </div>
+                <button class="tbd-btn" id="tbd2" onclick="toggleTBD(2)">TBD</button>
+              </div>
+              <div class="tp-row">
+                <div>
+                  <label>TP 3</label>
+                  <input type="number" id="tp3" placeholder="0.00" step="any" oninput="recalc()">
+                </div>
+                <button class="tbd-btn" id="tbd3" onclick="toggleTBD(3)">TBD</button>
+              </div>
+              <div class="rr-row">
+                <div class="rr-box">
+                  <div class="rr-lbl">RR TP1</div>
+                  <div class="rr-val" id="rr1">-</div>
+                </div>
+                <div class="rr-box">
+                  <div class="rr-lbl">RR TP2</div>
+                  <div class="rr-val" id="rr2">-</div>
+                </div>
+                <div class="rr-box">
+                  <div class="rr-lbl">RR TP3</div>
+                  <div class="rr-val" id="rr3">-</div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -219,7 +225,7 @@
             <div class="card-title">
               <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg> Live Discord Preview
             </div>
-            <div class="preview-box" id="previewBox">Fill in level details above...</div>
+            <div class="preview-box" id="previewBox">Write signal message details...</div>
           </div>
           
           <button class="send-btn" id="sendBtn" onclick="sendSignal()">
@@ -236,9 +242,14 @@
         <div class="page-title">
           <svg style="width:24px;height:24px;fill:currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg> Trade Journal
         </div>
-        <div class="month-sel">
-          <label style="margin:0">Month:</label>
-          <select id="monthFilter" onchange="renderJournal()"></select>
+        <div style="display:flex; align-items:center; gap:12px">
+          <button class="hbtn" style="border-color:var(--green); color:var(--green);" onclick="openAddManualTrade()">
+            <svg viewBox="0 0 24 24" style="fill:currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> Add Trade
+          </button>
+          <div class="month-sel">
+            <label style="margin:0">Month:</label>
+            <select id="monthFilter" onchange="renderJournal()"></select>
+          </div>
         </div>
       </div>
       <div class="jfilters">
@@ -354,6 +365,35 @@
     </div>
   </div>
 
+  <!-- CLOUD SYNC SETTINGS MODAL -->
+  <div class="modal-overlay" id="syncModal">
+    <div class="modal" style="max-width: 440px;">
+      <div class="mhdr">
+        <div class="mtitle">Cloud Sync Settings</div>
+        <button class="mclose" onclick="closeModal('syncModal')" title="Close">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.6">
+        Link multiple devices (laptop, PC, phone) to share the same trade journals and webhook configurations automatically.
+      </p>
+      <div class="field">
+        <label>Your Device Sync ID</label>
+        <div style="display:flex; gap:8px">
+          <input type="text" id="syncIdVal" readonly style="font-size:12px; letter-spacing:0; flex:1">
+          <button class="upd-btn" style="height:42px" onclick="navigator.clipboard.writeText(document.getElementById('syncIdVal').value); toast('Sync ID copied to clipboard!', 'ok');">Copy</button>
+        </div>
+        <div class="hint">Copy this Sync ID and connect from another device.</div>
+      </div>
+      <div class="field" style="margin-top:16px">
+        <label>Connect to Another Device Sync ID</label>
+        <input type="text" id="connectSyncIdInput" placeholder="Paste txbt_... Sync ID here" style="letter-spacing:0">
+        <div class="hint">Warning: Connecting will merge and download that device's data, overwriting local state.</div>
+      </div>
+      <button class="save-btn" onclick="connectSyncId(document.getElementById('connectSyncIdInput').value).then(function(ok){ if(ok){ closeModal('syncModal'); document.getElementById('connectSyncIdInput').value=''; } })">CONNECT & MERGE DEVICES</button>
+    </div>
+  </div>
+
   <!-- SERVERS SETTINGS MODAL -->
   <div class="modal-overlay" id="serversModal">
     <div class="modal">
@@ -370,6 +410,98 @@
       <div id="webhookEntries"></div>
       <button class="add-btn" onclick="addWebhook()">+ Add Webhook Destination</button>
       <button class="save-btn" onclick="saveServers()">SAVE CONFIGURATION</button>
+    </div>
+  </div>
+
+  <!-- ADD MANUAL TRADE ENTRY MODAL -->
+  <div class="modal-overlay" id="addTradeModal">
+    <div class="modal" style="max-width: 520px;">
+      <div class="mhdr">
+        <div class="mtitle">Log Trade Manually</div>
+        <button class="mclose" onclick="closeModal('addTradeModal')" title="Close">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="g2">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="mDate">
+        </div>
+        <div class="field">
+          <label>Pair</label>
+          <input type="text" id="mPair" value="XAUUSD" placeholder="e.g. BTCUSDT" style="text-transform:uppercase">
+        </div>
+      </div>
+      <div class="g2">
+        <div class="field">
+          <label>Direction</label>
+          <select id="mDir">
+            <option value="LONG">LONG</option>
+            <option value="SHORT">SHORT</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Risk Size</label>
+          <input type="text" id="mRisk" value="1R" placeholder="e.g. 0.5R, 1R, 2%">
+        </div>
+      </div>
+      <div class="g2">
+        <div class="field">
+          <label>Entry Price</label>
+          <input type="number" id="mEntry" placeholder="0.00" step="any">
+        </div>
+        <div class="field">
+          <label>Stop Loss</label>
+          <input type="number" id="mSL" placeholder="0.00" step="any">
+        </div>
+      </div>
+      <div class="g3">
+        <div class="field">
+          <label>TP 1</label>
+          <input type="number" id="mTP1" placeholder="0.00" step="any">
+        </div>
+        <div class="field">
+          <label>TP 2</label>
+          <input type="number" id="mTP2" placeholder="0.00" step="any">
+        </div>
+        <div class="field">
+          <label>TP 3</label>
+          <input type="number" id="mTP3" placeholder="0.00" step="any">
+        </div>
+      </div>
+      <div class="g2">
+        <div class="field">
+          <label>Status</label>
+          <select id="mStatus" onchange="document.getElementById('mResult').value = this.value === 'OPEN' ? 'RUNNING' : (this.value === 'WIN' ? 'FULL TP' : (this.value === 'LOSS' ? 'SL HIT' : 'BREAKEVEN'))">
+            <option value="OPEN">OPEN</option>
+            <option value="WIN">WIN</option>
+            <option value="LOSS">LOSS</option>
+            <option value="BE">BREAKEVEN</option>
+          </select>
+         </div>
+         <div class="field">
+           <label>Execution Result</label>
+           <select id="mResult">
+             <option value="RUNNING">RUNNING</option>
+             <option value="TP1 HIT">TP1 HIT</option>
+             <option value="TP2 HIT">TP2 HIT</option>
+             <option value="TP3 HIT">TP3 HIT</option>
+             <option value="FULL TP">FULL TP</option>
+             <option value="SL HIT">SL HIT</option>
+             <option value="BREAKEVEN">BREAKEVEN</option>
+             <option value="CLOSED">CLOSED</option>
+           </select>
+         </div>
+      </div>
+      <div class="field">
+        <label>RR Achieved (optional override)</label>
+        <input type="number" id="mRR" placeholder="Leave empty for auto-calc" step="any">
+      </div>
+      <div class="field">
+        <label>Trade Notes</label>
+        <textarea id="mNote" placeholder="e.g. Trailed stop loss to entry price + partial profits."></textarea>
+      </div>
+      <button class="save-btn" onclick="addManualTrade()">LOG TRADE ENTRY</button>
     </div>
   </div>
 
