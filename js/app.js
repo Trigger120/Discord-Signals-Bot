@@ -64,17 +64,18 @@ function updateTimestampAndPush() {
 // Helper to fetch JSON via multiple public CORS proxies for redundancy
 async function fetchProxyJson(targetUrl) {
   var proxies = [
+    'https://api.allorigins.win/raw?url=',
     'https://api.cors.lol/?url=',
     'https://corsproxy.io/?',
-    'https://api.allorigins.win/get?url=',
     'https://thingproxy.freeboard.io/fetch/'
   ];
   
   for (var i = 0; i < proxies.length; i++) {
     try {
-      var isAllOrigins = proxies[i].includes('allorigins');
+      var isAllOriginsGet = proxies[i].includes('allorigins') && proxies[i].includes('/get');
+      var isAllOriginsAny = proxies[i].includes('allorigins');
       var isCorsLol = proxies[i].includes('cors.lol');
-      var proxyUrl = proxies[i] + ((isAllOrigins || isCorsLol) ? encodeURIComponent(targetUrl) : targetUrl);
+      var proxyUrl = proxies[i] + ((isAllOriginsAny || isCorsLol) ? encodeURIComponent(targetUrl) : targetUrl);
       
       // Use a timeout of 6 seconds per proxy try
       var controller = new AbortController();
@@ -96,7 +97,7 @@ async function fetchProxyJson(targetUrl) {
       
       if (res.ok) {
         var json = await res.json();
-        if (isAllOrigins) {
+        if (isAllOriginsGet) {
           if (json.contents) {
             try {
               return JSON.parse(json.contents);
