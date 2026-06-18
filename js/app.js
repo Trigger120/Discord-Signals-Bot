@@ -73,7 +73,7 @@ async function pushData() {
   };
   
   try {
-    await fetch('https://kvdb.io/' + S.syncId + '/data', {
+    await fetch('https://kvdb.io/DrYLY31iqQxqVqUTkjNAin/' + S.syncId, {
       method: 'POST',
       body: JSON.stringify(data)
     });
@@ -86,7 +86,7 @@ async function pushData() {
 async function pullData() {
   if (!S.syncId) return;
   try {
-    var res = await fetch('https://kvdb.io/' + S.syncId + '/data');
+    var res = await fetch('https://kvdb.io/DrYLY31iqQxqVqUTkjNAin/' + S.syncId);
     if (res.status === 404) {
       // Key doesn't exist yet on cloud, initialize it
       await pushData();
@@ -132,7 +132,7 @@ async function connectSyncId(newSyncId) {
   }
   
   try {
-    var res = await fetch('https://kvdb.io/' + newSyncId + '/data');
+    var res = await fetch('https://kvdb.io/DrYLY31iqQxqVqUTkjNAin/' + newSyncId);
     if (!res.ok && res.status !== 404) {
       toast('Failed to reach cloud database.', 'err');
       return false;
