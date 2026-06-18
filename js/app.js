@@ -61,6 +61,65 @@ function updateTimestampAndPush() {
   pushData();
 }
 
+// Helper to fetch JSON via multiple public CORS proxies for redundancy
+async function fetchProxyJson(targetUrl) {
+  var proxies = [
+    'https://api.cors.lol/?url=',
+    'https://corsproxy.io/?',
+    'https://api.allorigins.win/get?url=',
+    'https://thingproxy.freeboard.io/fetch/'
+  ];
+  
+  for (var i = 0; i < proxies.length; i++) {
+    try {
+      var isAllOrigins = proxies[i].includes('allorigins');
+      var isCorsLol = proxies[i].includes('cors.lol');
+      var proxyUrl = proxies[i] + ((isAllOrigins || isCorsLol) ? encodeURIComponent(targetUrl) : targetUrl);
+      
+      // Use a timeout of 6 seconds per proxy try
+      var controller = new AbortController();
+      var id = setTimeout(function() { controller.abort(); }, 6000);
+      
+      var res = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(id);
+      
+      // If the proxy returns 404, check if it's the target server's 404 (e.g. key not found)
+      if (res.status === 404) {
+        try {
+          var text = await res.text();
+          var json = JSON.parse(text);
+          if (json && (json.error === 'not found' || json.message === 'not found')) {
+            return { error: 'not found' };
+          }
+        } catch (err) {}
+      }
+      
+      if (res.ok) {
+        var json = await res.json();
+        if (isAllOrigins) {
+          if (json.contents) {
+            try {
+              return JSON.parse(json.contents);
+            } catch (e) {
+              // Check if allorigins wrapped a 404 response
+              if (json.status && json.status.http_code === 404) {
+                return { error: 'not found' };
+              }
+              throw e;
+            }
+          }
+        } else {
+          return json;
+        }
+      }
+    } catch (e) {
+      console.warn('Proxy ' + proxies[i] + ' failed:', e);
+    }
+  }
+  throw new Error('All CORS proxies failed');
+}
+
+
 // Cloud synchronization logic (Push)
 async function pushData() {
   if (!S.syncId) return;
@@ -88,12 +147,7 @@ async function pullData() {
   if (!S.syncId) return;
   try {
     var targetUrl = 'https://setget.net/get/' + S.syncId;
-    var res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
-    if (!res.ok) return;
-    var resJson = await res.json();
-    if (!resJson.contents) return;
-    
-    var innerJson = JSON.parse(resJson.contents);
+    var innerJson = await fetchProxyJson(targetUrl);
     if (innerJson.error === 'not found') {
       // Key doesn't exist yet on cloud, initialize it
       await pushData();
@@ -140,18 +194,7 @@ async function connectSyncId(newSyncId) {
   
   try {
     var targetUrl = 'https://setget.net/get/' + newSyncId;
-    var res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
-    if (!res.ok) {
-      toast('Failed to reach cloud database.', 'err');
-      return false;
-    }
-    var resJson = await res.json();
-    if (!resJson.contents) {
-      toast('Failed to read cloud database response.', 'err');
-      return false;
-    }
-    
-    var innerJson = JSON.parse(resJson.contents);
+    var innerJson = await fetchProxyJson(targetUrl);
     
     S.syncId = newSyncId;
     localStorage.setItem('txbt_sync_id', S.syncId);
