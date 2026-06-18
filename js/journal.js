@@ -299,77 +299,251 @@ function deleteTrade(id, event) {
   }
 }
 
-// Export trade logs to structured CSV for Excel
-function exportExcelCSV() {
-  if (!S.trades || S.trades.length === 0) {
-    toast('No trades to export!', 'err');
+// Export trade logs to structured PDF Report
+function exportPDF() {
+  var { jsPDF } = window.jspdf;
+  if (!jsPDF) {
+    toast('PDF Library is still loading. Please try again.', 'err');
     return;
   }
   
-  // Define columns/headers
+  var trades = getMonthTrades('monthFilter');
+  if (!trades || trades.length === 0) {
+    toast('No trades to export for this month!', 'err');
+    return;
+  }
+  
+  // Sort trades chronologically (oldest to newest) for a clean timeline
+  trades = trades.slice().sort(function(a, b) {
+    return new Date(a.date) - new Date(b.date);
+  });
+  
+  var doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4'
+  });
+  
+  // Color palette (Matching app dark & gold theme, optimized for printing)
+  var cDark = [15, 23, 42];      // Dark slate blue text/headings
+  var cMuted = [100, 116, 139];   // Muted slate gray
+  var cGold = [245, 158, 11];     // Gold accent
+  var cGreen = [16, 185, 129];    // Success green
+  var cRed = [239, 68, 68];       // Alert red
+  var cBlue = [59, 130, 246];     // Info blue
+  
+  // 1. Draw PDF Top Header (Branding block)
+  // Draw a dark slate banner at the top
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, 297, 30, 'F');
+  
+  // Draw Gold accent strip below banner
+  doc.setFillColor(245, 158, 11); // gold
+  doc.rect(0, 30, 297, 1.5, 'F');
+  
+  // Header text inside banner
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text('TRIGGERXBT', 14, 15);
+  
+  doc.setFontSize(9);
+  doc.setTextColor(245, 158, 11); // gold subtitle
+  doc.setFont('Helvetica', 'normal');
+  doc.text('SIGNAL HUB - TRADE PERFORMANCE JOURNAL', 14, 21);
+  
+  // Add right-aligned metadata inside banner
+  var selMonth = document.getElementById('monthFilter');
+  var monthText = selMonth ? selMonth.options[selMonth.selectedIndex].text : 'ALL DATA';
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.text('REPORT PERIOD: ' + monthText.toUpperCase(), 283, 14, { align: 'right' });
+  doc.setFontSize(8);
+  doc.setTextColor(156, 163, 175);
+  doc.text('GENERATED ON: ' + new Date().toLocaleDateString(), 283, 20, { align: 'right' });
+  
+  // 2. Compute Performance Stats for the Selected Month
+  var total = trades.length;
+  var wins = trades.filter(function(t) { return t.status === 'WIN'; }).length;
+  var losses = trades.filter(function(t) { return t.status === 'LOSS'; }).length;
+  var bes = trades.filter(function(t) { return t.status === 'BE'; }).length;
+  var open = trades.filter(function(t) { return t.status === 'OPEN'; }).length;
+  
+  var closed = total - open;
+  var winRate = closed > 0 ? ((wins / closed) * 100).toFixed(1) + '%' : '0%';
+  
+  var totalRR = 0;
+  var totalPnL = 0;
+  trades.forEach(function(t) {
+    if (t.rr) totalRR += parseFloat(t.rr);
+    if (t.pnl) {
+      var val = parseFloat(t.pnl);
+      if (!isNaN(val)) totalPnL += val;
+    }
+  });
+  
+  // 3. Draw Performance Metric Cards
+  var drawMetricCard = function(x, y, w, h, label, value, valColor) {
+    // Card background
+    doc.setFillColor(248, 250, 252); // soft white gray
+    doc.roundedRect(x, y, w, h, 2, 2, 'F');
+    // Subtle border
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(x, y, w, h, 2, 2, 'D');
+    
+    // Label text
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139); // muted gray
+    doc.text(label.toUpperCase(), x + 4, y + 5.5);
+    
+    // Value text
+    doc.setFontSize(15);
+    doc.setTextColor(valColor[0], valColor[1], valColor[2]);
+    doc.text(value, x + 4, y + 13.5);
+  };
+  
+  // Draw 4 cards
+  var cardY = 38;
+  var cardW = 64;
+  var cardH = 17;
+  var spacing = 5;
+  
+  drawMetricCard(14, cardY, cardW, cardH, 'Total Trades logged', String(total) + ' (' + open + ' Open)', cDark);
+  drawMetricCard(14 + cardW + spacing, cardY, cardW, cardH, 'Net Win Rate (Closed)', winRate, cGreen);
+  drawMetricCard(14 + (cardW + spacing) * 2, cardY, cardW, cardH, 'Total Accumulated RR', (totalRR >= 0 ? '+' : '') + totalRR.toFixed(2) + 'R', cGold);
+  drawMetricCard(14 + (cardW + spacing) * 3, cardY, cardW, cardH, 'Net Account Growth %', (totalPnL >= 0 ? '+' : '') + totalPnL.toFixed(2) + '%', totalPnL >= 0 ? cGreen : cRed);
+  
+  // 4. Draw structured Table of Trades
   var headers = [
-    'Date',
-    'Pair',
-    'Direction',
-    'Entry Price',
-    'Stop Loss',
-    'TP 1',
-    'TP 2',
-    'TP 3',
-    'Risk Size',
-    'RR Multiples',
-    'Gain (%)',
-    'Status',
-    'Execution Result',
-    'Notes'
+    'Date', 'Pair', 'Dir', 'Entry', 'Stop Loss', 'TP 1', 'TP 2', 'TP 3', 'Risk', 'RR', 'Gain %', 'Status', 'Execution Note'
   ];
   
-  // Format each row
-  var rows = S.trades.map(function(t) {
+  var tableData = trades.map(function(t) {
     var d = new Date(t.date);
-    var ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    
-    // Helper to safely escape commas and quotes in values (especially Notes)
-    var clean = function(val) {
-      if (val === null || val === undefined) return '';
-      var str = String(val);
-      // Escape double quotes by doubling them
-      str = str.replace(/"/g, '""');
-      // If it contains a comma, newline or double quote, wrap in double quotes
-      if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
-        return '"' + str + '"';
+    var ds = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+    var pnlText = '-';
+    if (t.pnl) {
+      var pnlVal = parseFloat(t.pnl);
+      if (!isNaN(pnlVal)) {
+        pnlText = (pnlVal >= 0 ? '+' : '') + pnlVal.toFixed(2) + '%';
+      } else {
+        pnlText = t.pnl;
       }
-      return str;
-    };
+    }
     
     return [
       ds,
-      clean(t.pair),
-      clean(t.dir),
-      clean(t.entry),
-      clean(t.sl),
-      clean(t.tp1),
-      clean(t.tp2),
-      clean(t.tp3),
-      clean(t.risk),
-      t.rr ? t.rr + 'R' : '',
-      t.pnl ? (t.pnl.includes('%') ? t.pnl : t.pnl + '%') : '',
-      clean(t.status),
-      clean(t.result),
-      clean(t.note)
-    ].join(',');
+      t.pair,
+      t.dir,
+      t.entry,
+      t.sl || '-',
+      t.tp1 || '-',
+      t.tp2 || '-',
+      t.tp3 || '-',
+      t.risk || '1R',
+      t.rr ? t.rr + 'R' : '-',
+      pnlText,
+      t.status,
+      t.note || ''
+    ];
   });
   
-  var csvContent = "\ufeff" + headers.join(',') + '\n' + rows.join('\n');
-  var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'triggerxbt_journal_export_' + new Date().toISOString().slice(0, 10) + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  doc.autoTable({
+    startY: 61,
+    head: [headers],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'center',
+      valign: 'middle'
+    },
+    bodyStyles: {
+      fontSize: 7.5,
+      textColor: [15, 23, 42],
+      valign: 'middle'
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 16 }, // Date
+      1: { halign: 'center', cellWidth: 16, fontStyle: 'bold' }, // Pair
+      2: { halign: 'center', cellWidth: 12 }, // Dir
+      3: { halign: 'right', cellWidth: 16 }, // Entry
+      4: { halign: 'right', cellWidth: 16 }, // SL
+      5: { halign: 'right', cellWidth: 14 }, // TP1
+      6: { halign: 'right', cellWidth: 14 }, // TP2
+      7: { halign: 'right', cellWidth: 14 }, // TP3
+      8: { halign: 'center', cellWidth: 12 }, // Risk
+      9: { halign: 'center', cellWidth: 14, fontStyle: 'bold' }, // RR
+      10: { halign: 'center', cellWidth: 16 }, // Gain %
+      11: { halign: 'center', cellWidth: 16, fontStyle: 'bold' }, // Status
+      12: { halign: 'left' } // Note
+    },
+    didParseCell: function(data) {
+      if (data.section === 'body') {
+        // Style Direction
+        if (data.column.index === 2) {
+          var dir = data.cell.raw;
+          if (dir === 'LONG') {
+            data.cell.styles.textColor = cGreen;
+            data.cell.styles.fontStyle = 'bold';
+          } else if (dir === 'SHORT') {
+            data.cell.styles.textColor = cRed;
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+        // Style RR
+        if (data.column.index === 9 && data.cell.raw !== '-') {
+          data.cell.styles.textColor = cGold;
+        }
+        // Style PnL Gain
+        if (data.column.index === 10) {
+          var text = data.cell.raw;
+          if (text.startsWith('+')) {
+            data.cell.styles.textColor = cGreen;
+            data.cell.styles.fontStyle = 'bold';
+          } else if (text.startsWith('-')) {
+            data.cell.styles.textColor = cRed;
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+        // Style Status badge column
+        if (data.column.index === 11) {
+          var status = data.cell.raw;
+          if (status === 'WIN') {
+            data.cell.styles.textColor = cGreen;
+          } else if (status === 'LOSS') {
+            data.cell.styles.textColor = cRed;
+          } else if (status === 'BE') {
+            data.cell.styles.textColor = cBlue;
+          }
+        }
+      }
+    },
+    margin: { left: 14, right: 14, bottom: 15 },
+    styles: {
+      font: 'Helvetica',
+      lineWidth: 0.1,
+      cellPadding: 2
+    },
+    // Draw page numbers at the bottom of each page
+    didDrawPage: function(data) {
+      var str = 'Page ' + doc.internal.getNumberOfPages();
+      doc.setFont('Helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(str, 283, doc.internal.pageSize.height - 8, { align: 'right' });
+      doc.text('TRIGGERXBT Signal Hub - Proprietary Trade Report', 14, doc.internal.pageSize.height - 8);
+    }
+  });
   
-  toast('Excel report exported!', 'ok');
+  // Save PDF
+  var filename = 'triggerxbt_performance_report_' + monthText.toLowerCase().replace(/ /g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
+  doc.save(filename);
+  toast('PDF report exported successfully!', 'ok');
 }

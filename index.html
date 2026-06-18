@@ -11,6 +11,10 @@
   <!-- Chart.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   
+  <!-- jsPDF & jsPDF AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  
   <!-- Puter.js -->
   <script src="https://js.puter.com/v2/"></script>
   
@@ -237,8 +241,8 @@
           <svg style="width:24px;height:24px;fill:currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg> Trade Journal
         </div>
         <div style="display:flex; align-items:center; gap:12px">
-          <button class="hbtn" style="border-color:var(--gold); color:var(--gold);" onclick="exportExcelCSV()">
-            <svg viewBox="0 0 24 24" style="fill:currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg> Export Excel
+          <button class="hbtn" style="border-color:var(--gold); color:var(--gold);" onclick="exportPDF()">
+            <svg viewBox="0 0 24 24" style="fill:currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm12 4V8h-2v2h2zm0 2h-2v2h2v-2z"/></svg> Export PDF
           </button>
           <button class="hbtn" style="border-color:var(--green); color:var(--green);" onclick="openAddManualTrade()">
             <svg viewBox="0 0 24 24" style="fill:currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> Add Trade
