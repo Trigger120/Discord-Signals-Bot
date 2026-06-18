@@ -301,9 +301,16 @@ function deleteTrade(id, event) {
 
 // Export trade logs to structured PDF Report
 function exportPDF() {
-  var { jsPDF } = window.jspdf;
-  if (!jsPDF) {
-    toast('PDF Library is still loading. Please try again.', 'err');
+  var jsPDFClass = null;
+  if (window.jspdf && window.jspdf.jsPDF) {
+    jsPDFClass = window.jspdf.jsPDF;
+  } else if (window.jsPDF) {
+    jsPDFClass = window.jsPDF;
+  }
+  
+  if (!jsPDFClass) {
+    toast('PDF Library not loaded yet. Verify internet/VPN and refresh.', 'err');
+    console.error('jsPDF is not loaded on window.');
     return;
   }
   
@@ -318,11 +325,13 @@ function exportPDF() {
     return new Date(a.date) - new Date(b.date);
   });
   
-  var doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4'
-  });
+  var doc = new jsPDFClass('l', 'mm', 'a4');
+  
+  if (typeof doc.autoTable !== 'function') {
+    toast('AutoTable plugin is still loading. Please try again.', 'err');
+    console.error('doc.autoTable is not a function');
+    return;
+  }
   
   // Color palette (Matching app dark & gold theme, optimized for printing)
   var cDark = [15, 23, 42];      // Dark slate blue text/headings
@@ -504,12 +513,14 @@ function exportPDF() {
         // Style PnL Gain
         if (data.column.index === 10) {
           var text = data.cell.raw;
-          if (text.startsWith('+')) {
-            data.cell.styles.textColor = cGreen;
-            data.cell.styles.fontStyle = 'bold';
-          } else if (text.startsWith('-')) {
-            data.cell.styles.textColor = cRed;
-            data.cell.styles.fontStyle = 'bold';
+          if (text && typeof text === 'string') {
+            if (text.startsWith('+')) {
+              data.cell.styles.textColor = cGreen;
+              data.cell.styles.fontStyle = 'bold';
+            } else if (text.startsWith('-')) {
+              data.cell.styles.textColor = cRed;
+              data.cell.styles.fontStyle = 'bold';
+            }
           }
         }
         // Style Status badge column
