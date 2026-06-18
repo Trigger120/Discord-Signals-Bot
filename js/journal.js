@@ -298,3 +298,78 @@ function deleteTrade(id, event) {
     toast('Trade log deleted!', 'ok');
   }
 }
+
+// Export trade logs to structured CSV for Excel
+function exportExcelCSV() {
+  if (!S.trades || S.trades.length === 0) {
+    toast('No trades to export!', 'err');
+    return;
+  }
+  
+  // Define columns/headers
+  var headers = [
+    'Date',
+    'Pair',
+    'Direction',
+    'Entry Price',
+    'Stop Loss',
+    'TP 1',
+    'TP 2',
+    'TP 3',
+    'Risk Size',
+    'RR Multiples',
+    'Gain (%)',
+    'Status',
+    'Execution Result',
+    'Notes'
+  ];
+  
+  // Format each row
+  var rows = S.trades.map(function(t) {
+    var d = new Date(t.date);
+    var ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    
+    // Helper to safely escape commas and quotes in values (especially Notes)
+    var clean = function(val) {
+      if (val === null || val === undefined) return '';
+      var str = String(val);
+      // Escape double quotes by doubling them
+      str = str.replace(/"/g, '""');
+      // If it contains a comma, newline or double quote, wrap in double quotes
+      if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
+        return '"' + str + '"';
+      }
+      return str;
+    };
+    
+    return [
+      ds,
+      clean(t.pair),
+      clean(t.dir),
+      clean(t.entry),
+      clean(t.sl),
+      clean(t.tp1),
+      clean(t.tp2),
+      clean(t.tp3),
+      clean(t.risk),
+      t.rr ? t.rr + 'R' : '',
+      t.pnl ? (t.pnl.includes('%') ? t.pnl : t.pnl + '%') : '',
+      clean(t.status),
+      clean(t.result),
+      clean(t.note)
+    ].join(',');
+  });
+  
+  var csvContent = "\ufeff" + headers.join(',') + '\n' + rows.join('\n');
+  var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'triggerxbt_journal_export_' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  toast('Excel report exported!', 'ok');
+}
