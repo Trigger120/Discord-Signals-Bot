@@ -269,6 +269,25 @@ function copySyncLink() {
   }
 }
 
+// Reset and generate a brand new Sync ID for this device
+function resetSyncId(event) {
+  if (event) event.preventDefault();
+  if (confirm("Are you sure you want to reset your Sync ID? This will generate a new clean Sync ID for this device.")) {
+    S.syncId = genSyncId();
+    localStorage.setItem('txbt_sync_id', S.syncId);
+    
+    // Push current local data to the new session
+    pushData().then(function() {
+      // Reload displays
+      var sidVal = document.getElementById('syncIdVal');
+      if (sidVal) sidVal.value = S.syncId;
+      var slinkVal = document.getElementById('syncLinkVal');
+      if (slinkVal) slinkVal.value = getShareLink();
+      toast('New Sync ID generated!', 'ok');
+    });
+  }
+}
+
 // Load configurations and log files from local storage on startup
 function loadData() {
   var urlSyncId = getSyncIdFromUrl();
