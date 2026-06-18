@@ -11,6 +11,9 @@
   <!-- Chart.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   
+  <!-- Puter.js -->
+  <script src="https://js.puter.com/v2/"></script>
+  
   <!-- Custom Premium Stylesheet -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -367,33 +370,15 @@
         </button>
       </div>
       <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.6">
-        Link multiple devices (laptop, PC, phone) to share the same trade journals and webhook configurations automatically.
+        Link multiple devices (laptop, PC, phone) to share the same trade journals and webhook configurations automatically using Puter's secure edge cloud database.
       </p>
-      <div class="field">
-        <label>Share / Permanent Sync Link</label>
-        <div style="display:flex; gap:8px">
-          <input type="text" id="syncLinkVal" readonly style="font-size:11px; letter-spacing:0; flex:1" placeholder="Generating share link...">
-          <button class="upd-btn" style="height:42px" onclick="copySyncLink()">Copy Link</button>
-        </div>
-        <div class="hint">Open this link on your phone/other devices to automatically connect and sync.</div>
-      </div>
-      <div class="field" style="margin-top:16px">
-        <label>Raw Device Sync ID</label>
-        <div style="display:flex; gap:8px">
-          <input type="text" id="syncIdVal" readonly style="font-size:12px; letter-spacing:0; flex:1">
-          <button class="upd-btn" style="height:42px" onclick="navigator.clipboard.writeText(document.getElementById('syncIdVal').value); toast('Sync ID copied to clipboard!', 'ok');">Copy ID</button>
-        </div>
-        <div class="hint" style="display:flex; justify-content:space-between; align-items:center;">
-          <span>Or paste this ID manually on other devices to connect.</span>
-          <a href="#" onclick="resetSyncId(event)" style="color:var(--red); font-size:11px; text-decoration:underline; font-weight:600;">Reset to New ID</a>
+      
+      <!-- Puter Connection State Container -->
+      <div id="puterSyncContainer" style="padding: 10px 0;">
+        <div style="text-align: center; padding: 20px 0; color: var(--text-muted);">
+          Initializing Puter Cloud...
         </div>
       </div>
-      <div class="field" style="margin-top:16px">
-        <label>Connect to Another Device Sync ID</label>
-        <input type="text" id="connectSyncIdInput" placeholder="Paste txbt_... Sync ID here" style="letter-spacing:0">
-        <div class="hint">Warning: Connecting will merge and download that device's data, overwriting local state.</div>
-      </div>
-      <button class="save-btn" onclick="connectSyncId(document.getElementById('connectSyncIdInput').value).then(function(ok){ if(ok){ closeModal('syncModal'); document.getElementById('connectSyncIdInput').value=''; } })">CONNECT & MERGE DEVICES</button>
     </div>
   </div>
 
@@ -583,11 +568,11 @@
   <div class="toast" id="toast"></div>
 
   <!-- Application Logic Modules -->
-  <script src="js/app.js?v=1.8"></script>
-  <script src="js/auth.js?v=1.8"></script>
-  <script src="js/webhooks.js?v=1.8"></script>
-  <script src="js/signal.js?v=1.8"></script>
-  <script src="js/journal.js?v=1.8"></script>
-  <script src="js/dashboard.js?v=1.8"></script>
+  <script src="js/app.js?v=1.9"></script>
+  <script src="js/auth.js?v=1.9"></script>
+  <script src="js/webhooks.js?v=1.9"></script>
+  <script src="js/signal.js?v=1.9"></script>
+  <script src="js/journal.js?v=1.9"></script>
+  <script src="js/dashboard.js?v=1.9"></script>
 </body>
 </html>

@@ -17,8 +17,8 @@ window.S = {
   format: 'embed', // 'embed' or 'text'
   template: '$pair\n\n$dir\n\nEntry: $entry\nStop Loss: $sl\n\nTake Profits:$tps\n\nRisk: $risk\n\nRisk Free at 1RR\n\n$ping',
   
-  // Cloud sync ID
-  syncId: ''
+  // Puter Cloud status
+  puterInitialized: false
 };
 
 var DEF_PW = 'trigger2024';
@@ -26,16 +26,6 @@ var DEF_PW = 'trigger2024';
 // Retrieve active application password
 function getPW() {
   return localStorage.getItem('txbt_pw') || DEF_PW;
-}
-
-// Generate secure unguessable Sync ID
-function genSyncId() {
-  var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  var id = 'txbt_';
-  for (var i = 0; i < 24; i++) {
-    id += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return id;
 }
 
 // Save active global state to local storage & push to cloud
@@ -61,69 +51,9 @@ function updateTimestampAndPush() {
   pushData();
 }
 
-// Helper to fetch JSON via multiple public CORS proxies for redundancy
-async function fetchProxyJson(targetUrl) {
-  var proxies = [
-    'https://api.allorigins.win/raw?url=',
-    'https://api.cors.lol/?url=',
-    'https://corsproxy.io/?',
-    'https://thingproxy.freeboard.io/fetch/'
-  ];
-  
-  for (var i = 0; i < proxies.length; i++) {
-    try {
-      var isAllOriginsGet = proxies[i].includes('allorigins') && proxies[i].includes('/get');
-      var isAllOriginsAny = proxies[i].includes('allorigins');
-      var isCorsLol = proxies[i].includes('cors.lol');
-      var proxyUrl = proxies[i] + ((isAllOriginsAny || isCorsLol) ? encodeURIComponent(targetUrl) : targetUrl);
-      
-      // Use a timeout of 6 seconds per proxy try
-      var controller = new AbortController();
-      var id = setTimeout(function() { controller.abort(); }, 6000);
-      
-      var res = await fetch(proxyUrl, { signal: controller.signal });
-      clearTimeout(id);
-      
-      // If the proxy returns 404, check if it's the target server's 404 (e.g. key not found)
-      if (res.status === 404) {
-        try {
-          var text = await res.text();
-          var json = JSON.parse(text);
-          if (json && (json.error === 'not found' || json.message === 'not found')) {
-            return { error: 'not found' };
-          }
-        } catch (err) {}
-      }
-      
-      if (res.ok) {
-        var json = await res.json();
-        if (isAllOriginsGet) {
-          if (json.contents) {
-            try {
-              return JSON.parse(json.contents);
-            } catch (e) {
-              // Check if allorigins wrapped a 404 response
-              if (json.status && json.status.http_code === 404) {
-                return { error: 'not found' };
-              }
-              throw e;
-            }
-          }
-        } else {
-          return json;
-        }
-      }
-    } catch (e) {
-      console.warn('Proxy ' + proxies[i] + ' failed:', e);
-    }
-  }
-  throw new Error('All CORS proxies failed');
-}
-
-
-// Cloud synchronization logic (Push)
+// Cloud synchronization logic (Push to Puter)
 async function pushData() {
-  if (!S.syncId) return;
+  if (typeof puter === 'undefined' || !puter.auth.isSignedIn()) return;
   var data = {
     webhooks: S.webhooks,
     trades: S.trades,
@@ -133,29 +63,25 @@ async function pushData() {
   };
   
   try {
-    await fetch('https://setget.net/set/' + S.syncId, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify(data)
-    });
+    await puter.kv.set('txbt_data', JSON.stringify(data));
+    console.log('Cloud sync push succeeded.');
   } catch (e) {
-    console.warn('Cloud sync push failed (offline or network restriction):', e);
+    console.warn('Cloud sync push failed:', e);
   }
 }
 
-// Cloud synchronization logic (Pull)
+// Cloud synchronization logic (Pull from Puter)
 async function pullData() {
-  if (!S.syncId) return;
+  if (typeof puter === 'undefined' || !puter.auth.isSignedIn()) return;
   try {
-    var targetUrl = 'https://setget.net/get/' + S.syncId;
-    var innerJson = await fetchProxyJson(targetUrl);
-    if (innerJson.error === 'not found') {
+    var val = await puter.kv.get('txbt_data');
+    if (!val) {
       // Key doesn't exist yet on cloud, initialize it
       await pushData();
       return;
     }
     
-    var cloud = JSON.parse(innerJson.value);
+    var cloud = JSON.parse(val);
     var localLast = parseInt(localStorage.getItem('txbt_last_updated') || '0');
     
     if (cloud.lastUpdated && cloud.lastUpdated > localLast) {
@@ -177,6 +103,8 @@ async function pullData() {
       if (typeof renderJournal === 'function') renderJournal();
       if (typeof renderDashboard === 'function') renderDashboard();
       if (typeof updatePreview === 'function') updatePreview();
+      
+      console.log('Cloud sync pull and merge succeeded.');
     } else if (localLast > (cloud.lastUpdated || 0)) {
       // Local state is newer, push to cloud
       await pushData();
@@ -186,52 +114,99 @@ async function pullData() {
   }
 }
 
-// Connect device to an existing cloud Sync ID session
-async function connectSyncId(newSyncId) {
-  if (!newSyncId || !newSyncId.startsWith('txbt_')) {
-    toast('Invalid Sync ID format. Must start with txbt_', 'err');
-    return false;
+// Connect with Puter Auth
+async function connectPuter() {
+  if (typeof puter === 'undefined') {
+    toast('Puter Cloud SDK is loading, please try again in a moment.', 'err');
+    return;
+  }
+  try {
+    await puter.auth.signIn();
+    var signedIn = puter.auth.isSignedIn();
+    updatePuterUI(signedIn);
+    if (signedIn) {
+      toast('Signed in to Puter Cloud! Syncing data...', 'ok');
+      await pullData();
+      updatePuterUI(true);
+    }
+  } catch (e) {
+    console.error('Puter authentication failed:', e);
+    toast('Puter login failed.', 'err');
+  }
+}
+
+// Disconnect from Puter Auth
+async function disconnectPuter() {
+  if (typeof puter === 'undefined') return;
+  if (confirm("Are you sure you want to sign out and disconnect Cloud Sync on this device? Your local data will remain intact.")) {
+    puter.auth.signOut();
+    updatePuterUI(false);
+    toast('Disconnected from Puter Cloud.', 'ok');
+  }
+}
+
+// Trigger manual synchronization from UI button
+async function triggerManualSync() {
+  toast('Syncing with Puter Cloud...', 'ok');
+  localStorage.setItem('txbt_last_updated', Date.now());
+  await pushData();
+  await pullData();
+  if (typeof puter !== 'undefined') {
+    updatePuterUI(puter.auth.isSignedIn());
+  }
+  toast('Sync complete!', 'ok');
+}
+
+// Render dynamic interface for cloud sync modal
+function updatePuterUI(signedIn) {
+  var container = document.getElementById('puterSyncContainer');
+  if (!container) return;
+  
+  if (typeof puter === 'undefined') {
+    container.innerHTML = '<div style="text-align: center; padding: 20px 0; color: var(--text-muted); font-size:12px;">Initializing Puter Cloud...</div>';
+    return;
   }
   
-  try {
-    var targetUrl = 'https://setget.net/get/' + newSyncId;
-    var innerJson = await fetchProxyJson(targetUrl);
+  if (!signedIn) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 10px 0;">
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6; text-align: left;">
+          Connect your Puter account to automatically synchronize all trade journals, performance analytics, and Discord webhook configurations between your laptop, PC, and phone.
+        </div>
+        <button class="pw-btn" onclick="connectPuter()" style="margin-bottom: 10px;">SIGN IN WITH PUTER</button>
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 10px;">
+          Secure, direct edge database sync. No configuration required.
+        </div>
+      </div>
+    `;
+  } else {
+    var user = puter.auth.getUser();
+    var username = (user && user.username) ? user.username : 'User';
+    var lastUpdated = localStorage.getItem('txbt_last_updated');
+    var lastSyncStr = lastUpdated ? new Date(parseInt(lastUpdated)).toLocaleString() : 'Never';
     
-    S.syncId = newSyncId;
-    localStorage.setItem('txbt_sync_id', S.syncId);
-    
-    if (innerJson.error === 'not found') {
-      // Create new session online and push current local data to it
-      await pushData();
-      toast('Sync Connected! Uploaded data to new session.', 'ok');
-    } else {
-      // Session exists, pull cloud data and replace local
-      var cloud = JSON.parse(innerJson.value);
-      S.webhooks = cloud.webhooks || [];
-      S.trades = cloud.trades || [];
-      S.format = cloud.format || S.format;
-      S.template = cloud.template || S.template;
-      
-      localStorage.setItem('txbt_wh', JSON.stringify(S.webhooks));
-      localStorage.setItem('txbt_tr', JSON.stringify(S.trades));
-      localStorage.setItem('txbt_format', S.format);
-      localStorage.setItem('txbt_template', S.template);
-      localStorage.setItem('txbt_last_updated', cloud.lastUpdated || Date.now());
-      
-      loadData();
-      toast('Sync Connected! Merged data from cloud.', 'ok');
-    }
-    
-    // Update Sync Modal display fields
-    var sidVal = document.getElementById('syncIdVal');
-    if (sidVal) sidVal.value = S.syncId;
-    var slinkVal = document.getElementById('syncLinkVal');
-    if (slinkVal) slinkVal.value = getShareLink();
-    
-    return true;
-  } catch (e) {
-    toast('Connection failed. Verify internet or VPN.', 'err');
-    return false;
+    container.innerHTML = `
+      <div style="padding: 10px 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+          <div>
+            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Connected Account</div>
+            <div style="font-size: 16px; font-weight: 600; color: var(--gold); font-family: var(--font-display);">${username}</div>
+          </div>
+          <span style="font-size: 9px; background: var(--green-dim); color: var(--green); border: 1px solid var(--green); padding: 4px 8px; border-radius: 4px; font-weight: 600; letter-spacing: 1px;">ACTIVE</span>
+        </div>
+        
+        <div style="font-size: 12px; margin-bottom: 20px; color: var(--text-muted); display: flex; justify-content: space-between;">
+          <span>Last Synced:</span>
+          <strong style="color: var(--text);">${lastSyncStr}</strong>
+        </div>
+        
+        <button class="pw-btn" onclick="triggerManualSync()" style="margin-bottom: 16px; font-size:14px; padding:12px;">SYNC NOW</button>
+        
+        <div style="text-align: center; margin-top: 12px;">
+          <a href="#" onclick="event.preventDefault(); disconnectPuter();" style="font-size: 11px; color: var(--red); text-decoration: none; font-weight: 600; letter-spacing: 1px;">DISCONNECT ACCOUNT</a>
+        </div>
+      </div>
+    `;
   }
 }
 
@@ -261,6 +236,10 @@ function navigate(p) {
 // Modal management helpers
 function openModal(id) {
   document.getElementById(id).classList.add('open');
+  // Trigger update check when opening Sync modal
+  if (id === 'syncModal' && typeof puter !== 'undefined') {
+    updatePuterUI(puter.auth.isSignedIn());
+  }
 }
 
 function closeModal(id) {
@@ -282,105 +261,24 @@ function toast(msg, type) {
   t.dataset.timeoutId = id;
 }
 
-// Helper to get Sync ID from the URL query string or hash parameters
-function getSyncIdFromUrl() {
-  try {
-    var urlParams = new URLSearchParams(window.location.search);
-    var sync = urlParams.get('sync');
-    if (sync && sync.startsWith('txbt_')) return sync;
-    
-    var hash = window.location.hash;
-    if (hash) {
-      var match = hash.match(/sync=(txbt_[a-z0-9]+)/);
-      if (match) return match[1];
-      if (hash.startsWith('#txbt_')) return hash.substring(1);
+// Check and initialize Puter connectivity state
+function initPuterCloud() {
+  if (typeof puter !== 'undefined') {
+    var signedIn = puter.auth.isSignedIn();
+    updatePuterUI(signedIn);
+    if (signedIn) {
+      pullData().then(function() {
+        updatePuterUI(true);
+      });
     }
-  } catch (e) {}
-  return null;
-}
-
-// Generate the full shareable URL containing the current Sync ID
-function getShareLink() {
-  try {
-    var href = window.location.href;
-    var idxHash = href.indexOf('#');
-    if (idxHash !== -1) href = href.substring(0, idxHash);
-    var idxSearch = href.indexOf('?');
-    if (idxSearch !== -1) href = href.substring(0, idxSearch);
-    return href + '#sync=' + S.syncId;
-  } catch (e) {
-    return '';
-  }
-}
-
-// Copy the shareable Sync link to the clipboard
-function copySyncLink() {
-  var link = getShareLink();
-  if (link) {
-    navigator.clipboard.writeText(link).then(function() {
-      toast('Share link copied to clipboard!', 'ok');
-    }).catch(function() {
-      toast('Failed to copy to clipboard.', 'err');
-    });
-  }
-}
-
-// Reset and generate a brand new Sync ID for this device
-function resetSyncId(event) {
-  if (event) event.preventDefault();
-  if (confirm("Are you sure you want to reset your Sync ID? This will generate a new clean Sync ID for this device.")) {
-    S.syncId = genSyncId();
-    localStorage.setItem('txbt_sync_id', S.syncId);
-    
-    // Push current local data to the new session
-    pushData().then(function() {
-      // Reload displays
-      var sidVal = document.getElementById('syncIdVal');
-      if (sidVal) sidVal.value = S.syncId;
-      var slinkVal = document.getElementById('syncLinkVal');
-      if (slinkVal) slinkVal.value = getShareLink();
-      toast('New Sync ID generated!', 'ok');
-    });
+  } else {
+    // Retry in 500ms
+    setTimeout(initPuterCloud, 500);
   }
 }
 
 // Load configurations and log files from local storage on startup
 function loadData() {
-  var urlSyncId = getSyncIdFromUrl();
-  var storedSyncId = localStorage.getItem('txbt_sync_id') || '';
-  
-  if (urlSyncId && urlSyncId !== storedSyncId) {
-    // URL has a new Sync ID! Connect automatically
-    S.syncId = urlSyncId;
-    localStorage.setItem('txbt_sync_id', S.syncId);
-    
-    connectSyncId(urlSyncId).then(function(ok) {
-      if (ok) {
-        try {
-          var cleanHref = window.location.href.split('#')[0].split('?')[0];
-          window.history.replaceState({}, document.title, cleanHref);
-        } catch (e) {}
-      }
-    });
-    return;
-  }
-  
-  // Normal startup path
-  S.syncId = storedSyncId;
-  if (!S.syncId) {
-    S.syncId = genSyncId();
-    localStorage.setItem('txbt_sync_id', S.syncId);
-  }
-  
-  // Set in modal inputs if exist
-  var sidVal = document.getElementById('syncIdVal');
-  if (sidVal) sidVal.value = S.syncId;
-  
-  var slinkVal = document.getElementById('syncLinkVal');
-  if (slinkVal) {
-    slinkVal.value = getShareLink();
-  }
-
   try {
     S.webhooks = JSON.parse(localStorage.getItem('txbt_wh') || '[]');
   } catch (e) {
@@ -410,8 +308,8 @@ function loadData() {
   if (typeof renderDashboard === 'function') renderDashboard();
   if (typeof updatePreview === 'function') updatePreview();
 
-  // Pull latest updates from cloud (background)
-  pullData();
+  // Initialize Puter Edge Cloud
+  initPuterCloud();
 }
 
 // Export local data to external backup file (JSON format)
@@ -484,4 +382,17 @@ window.addEventListener('DOMContentLoaded', function() {
       }
     });
   });
+  
+  // Periodically check/pull updates from cloud in background if signed in
+  setInterval(function() {
+    if (typeof puter !== 'undefined' && puter.auth.isSignedIn()) {
+      pullData().then(function() {
+        // Refresh UI state inside the sync modal if it is currently open
+        var modal = document.getElementById('syncModal');
+        if (modal && modal.classList.contains('open')) {
+          updatePuterUI(true);
+        }
+      });
+    }
+  }, 30000); // Check every 30 seconds
 });
