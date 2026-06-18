@@ -73,7 +73,7 @@ async function pushData() {
   };
   
   try {
-    await fetch('https://kvdb.io/DrYLY31iqQxqVqUTkjNAin/' + S.syncId, {
+    await fetch('https://setget.net/set/' + S.syncId, {
       method: 'POST',
       body: JSON.stringify(data)
     });
@@ -86,14 +86,16 @@ async function pushData() {
 async function pullData() {
   if (!S.syncId) return;
   try {
-    var res = await fetch('https://kvdb.io/DrYLY31iqQxqVqUTkjNAin/' + S.syncId);
-    if (res.status === 404) {
+    var res = await fetch('https://setget.net/get/' + S.syncId);
+    if (!res.ok) return;
+    var resJson = await res.json();
+    if (resJson.error === 'not found') {
       // Key doesn't exist yet on cloud, initialize it
       await pushData();
       return;
     }
-    if (!res.ok) return;
-    var cloud = await res.json();
+    
+    var cloud = JSON.parse(resJson.value);
     var localLast = parseInt(localStorage.getItem('txbt_last_updated') || '0');
     
     if (cloud.lastUpdated && cloud.lastUpdated > localLast) {
@@ -132,22 +134,23 @@ async function connectSyncId(newSyncId) {
   }
   
   try {
-    var res = await fetch('https://kvdb.io/DrYLY31iqQxqVqUTkjNAin/' + newSyncId);
-    if (!res.ok && res.status !== 404) {
+    var res = await fetch('https://setget.net/get/' + newSyncId);
+    if (!res.ok) {
       toast('Failed to reach cloud database.', 'err');
       return false;
     }
+    var resJson = await res.json();
     
     S.syncId = newSyncId;
     localStorage.setItem('txbt_sync_id', S.syncId);
     
-    if (res.status === 404) {
+    if (resJson.error === 'not found') {
       // Create new session online and push current local data to it
       await pushData();
       toast('Sync Connected! Uploaded data to new session.', 'ok');
     } else {
       // Session exists, pull cloud data and replace local
-      var cloud = await res.json();
+      var cloud = JSON.parse(resJson.value);
       S.webhooks = cloud.webhooks || [];
       S.trades = cloud.trades || [];
       S.format = cloud.format || S.format;
