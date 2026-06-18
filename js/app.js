@@ -166,6 +166,8 @@ async function connectSyncId(newSyncId) {
     // Update Sync Modal display fields
     var sidVal = document.getElementById('syncIdVal');
     if (sidVal) sidVal.value = S.syncId;
+    var slinkVal = document.getElementById('syncLinkVal');
+    if (slinkVal) slinkVal.value = getShareLink();
     
     return true;
   } catch (e) {
@@ -221,18 +223,85 @@ function toast(msg, type) {
   t.dataset.timeoutId = id;
 }
 
+// Helper to get Sync ID from the URL query string or hash parameters
+function getSyncIdFromUrl() {
+  try {
+    var urlParams = new URLSearchParams(window.location.search);
+    var sync = urlParams.get('sync');
+    if (sync && sync.startsWith('txbt_')) return sync;
+    
+    var hash = window.location.hash;
+    if (hash) {
+      var match = hash.match(/sync=(txbt_[a-z0-9]+)/);
+      if (match) return match[1];
+      if (hash.startsWith('#txbt_')) return hash.substring(1);
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Generate the full shareable URL containing the current Sync ID
+function getShareLink() {
+  try {
+    var href = window.location.href;
+    var idxHash = href.indexOf('#');
+    if (idxHash !== -1) href = href.substring(0, idxHash);
+    var idxSearch = href.indexOf('?');
+    if (idxSearch !== -1) href = href.substring(0, idxSearch);
+    return href + '#sync=' + S.syncId;
+  } catch (e) {
+    return '';
+  }
+}
+
+// Copy the shareable Sync link to the clipboard
+function copySyncLink() {
+  var link = getShareLink();
+  if (link) {
+    navigator.clipboard.writeText(link).then(function() {
+      toast('Share link copied to clipboard!', 'ok');
+    }).catch(function() {
+      toast('Failed to copy to clipboard.', 'err');
+    });
+  }
+}
+
 // Load configurations and log files from local storage on startup
 function loadData() {
-  // Check and setup Sync ID
-  S.syncId = localStorage.getItem('txbt_sync_id') || '';
+  var urlSyncId = getSyncIdFromUrl();
+  var storedSyncId = localStorage.getItem('txbt_sync_id') || '';
+  
+  if (urlSyncId && urlSyncId !== storedSyncId) {
+    // URL has a new Sync ID! Connect automatically
+    S.syncId = urlSyncId;
+    localStorage.setItem('txbt_sync_id', S.syncId);
+    
+    connectSyncId(urlSyncId).then(function(ok) {
+      if (ok) {
+        try {
+          var cleanHref = window.location.href.split('#')[0].split('?')[0];
+          window.history.replaceState({}, document.title, cleanHref);
+        } catch (e) {}
+      }
+    });
+    return;
+  }
+  
+  // Normal startup path
+  S.syncId = storedSyncId;
   if (!S.syncId) {
     S.syncId = genSyncId();
     localStorage.setItem('txbt_sync_id', S.syncId);
   }
   
-  // Set in modal input if exists
+  // Set in modal inputs if exist
   var sidVal = document.getElementById('syncIdVal');
   if (sidVal) sidVal.value = S.syncId;
+  
+  var slinkVal = document.getElementById('syncLinkVal');
+  if (slinkVal) {
+    slinkVal.value = getShareLink();
+  }
 
   try {
     S.webhooks = JSON.parse(localStorage.getItem('txbt_wh') || '[]');

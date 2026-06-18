@@ -370,12 +370,20 @@
         Link multiple devices (laptop, PC, phone) to share the same trade journals and webhook configurations automatically.
       </p>
       <div class="field">
-        <label>Your Device Sync ID</label>
+        <label>Share / Permanent Sync Link</label>
+        <div style="display:flex; gap:8px">
+          <input type="text" id="syncLinkVal" readonly style="font-size:11px; letter-spacing:0; flex:1" placeholder="Generating share link...">
+          <button class="upd-btn" style="height:42px" onclick="copySyncLink()">Copy Link</button>
+        </div>
+        <div class="hint">Open this link on your phone/other devices to automatically connect and sync.</div>
+      </div>
+      <div class="field" style="margin-top:16px">
+        <label>Raw Device Sync ID</label>
         <div style="display:flex; gap:8px">
           <input type="text" id="syncIdVal" readonly style="font-size:12px; letter-spacing:0; flex:1">
-          <button class="upd-btn" style="height:42px" onclick="navigator.clipboard.writeText(document.getElementById('syncIdVal').value); toast('Sync ID copied to clipboard!', 'ok');">Copy</button>
+          <button class="upd-btn" style="height:42px" onclick="navigator.clipboard.writeText(document.getElementById('syncIdVal').value); toast('Sync ID copied to clipboard!', 'ok');">Copy ID</button>
         </div>
-        <div class="hint">Copy this Sync ID and connect from another device.</div>
+        <div class="hint">Or paste this ID manually on other devices to connect.</div>
       </div>
       <div class="field" style="margin-top:16px">
         <label>Connect to Another Device Sync ID</label>
