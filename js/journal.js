@@ -431,8 +431,13 @@ function exportPDF() {
   ];
   
   var tableData = trades.map(function(t) {
-    var d = new Date(t.date);
-    var ds = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+    var ds = 'N/A';
+    if (t.date) {
+      var d = new Date(t.date);
+      if (!isNaN(d.getTime())) {
+        ds = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+      }
+    }
     var pnlText = '-';
     if (t.pnl) {
       var pnlVal = parseFloat(t.pnl);
@@ -445,9 +450,9 @@ function exportPDF() {
     
     return [
       ds,
-      t.pair,
-      t.dir,
-      t.entry,
+      t.pair || '-',
+      t.dir || '-',
+      t.entry || '-',
       t.sl || '-',
       t.tp1 || '-',
       t.tp2 || '-',
@@ -455,7 +460,7 @@ function exportPDF() {
       t.risk || '1R',
       t.rr ? t.rr + 'R' : '-',
       pnlText,
-      t.status,
+      t.status || '-',
       t.note || ''
     ];
   });
@@ -514,10 +519,10 @@ function exportPDF() {
         if (data.column.index === 10) {
           var text = data.cell.raw;
           if (text && typeof text === 'string') {
-            if (text.startsWith('+')) {
+            if (text.charAt(0) === '+') {
               data.cell.styles.textColor = cGreen;
               data.cell.styles.fontStyle = 'bold';
-            } else if (text.startsWith('-')) {
+            } else if (text.charAt(0) === '-') {
               data.cell.styles.textColor = cRed;
               data.cell.styles.fontStyle = 'bold';
             }
