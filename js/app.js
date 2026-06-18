@@ -75,6 +75,7 @@ async function pushData() {
   try {
     await fetch('https://setget.net/set/' + S.syncId, {
       method: 'POST',
+      mode: 'no-cors',
       body: JSON.stringify(data)
     });
   } catch (e) {
@@ -86,16 +87,20 @@ async function pushData() {
 async function pullData() {
   if (!S.syncId) return;
   try {
-    var res = await fetch('https://setget.net/get/' + S.syncId);
+    var targetUrl = 'https://setget.net/get/' + S.syncId;
+    var res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
     if (!res.ok) return;
     var resJson = await res.json();
-    if (resJson.error === 'not found') {
+    if (!resJson.contents) return;
+    
+    var innerJson = JSON.parse(resJson.contents);
+    if (innerJson.error === 'not found') {
       // Key doesn't exist yet on cloud, initialize it
       await pushData();
       return;
     }
     
-    var cloud = JSON.parse(resJson.value);
+    var cloud = JSON.parse(innerJson.value);
     var localLast = parseInt(localStorage.getItem('txbt_last_updated') || '0');
     
     if (cloud.lastUpdated && cloud.lastUpdated > localLast) {
@@ -134,23 +139,30 @@ async function connectSyncId(newSyncId) {
   }
   
   try {
-    var res = await fetch('https://setget.net/get/' + newSyncId);
+    var targetUrl = 'https://setget.net/get/' + newSyncId;
+    var res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl));
     if (!res.ok) {
       toast('Failed to reach cloud database.', 'err');
       return false;
     }
     var resJson = await res.json();
+    if (!resJson.contents) {
+      toast('Failed to read cloud database response.', 'err');
+      return false;
+    }
+    
+    var innerJson = JSON.parse(resJson.contents);
     
     S.syncId = newSyncId;
     localStorage.setItem('txbt_sync_id', S.syncId);
     
-    if (resJson.error === 'not found') {
+    if (innerJson.error === 'not found') {
       // Create new session online and push current local data to it
       await pushData();
       toast('Sync Connected! Uploaded data to new session.', 'ok');
     } else {
       // Session exists, pull cloud data and replace local
-      var cloud = JSON.parse(resJson.value);
+      var cloud = JSON.parse(innerJson.value);
       S.webhooks = cloud.webhooks || [];
       S.trades = cloud.trades || [];
       S.format = cloud.format || S.format;
