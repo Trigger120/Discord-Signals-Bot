@@ -25,6 +25,43 @@ This application is built with a **100% serverless client-side architecture**. T
 
 ---
 
+## 🏗️ System Architecture
+
+The following diagram illustrates how data flows securely within the TRIGGERXBT Signal Hub. No user data, webhooks, or logs are ever transmitted to or stored on third-party servers. All operations happen directly inside the user's browser sandbox.
+
+```mermaid
+graph TD
+    subgraph Client Browser [Client-Side App (User Sandbox)]
+        UI[Freestyle Signal Composer & Trade Journal]
+        Logic[JS App Controller (app.js, journal.js)]
+        LocalDB[(Browser LocalStorage)]
+    end
+
+    subgraph Puter Edge Cloud [Puter.js Serverless Services]
+        PuterAuth[Puter Secure Auth]
+        PuterKV[(Puter Key-Value Store)]
+    end
+
+    subgraph External APIs [External Endpoints]
+        DiscordAPI[Discord API Webhook Servers]
+    end
+
+    UI --> Logic
+    Logic <--> LocalDB
+    Logic <--> PuterAuth
+    Logic <--> PuterKV
+    Logic -- Broadcast Signals --> DiscordAPI
+
+    style Client Browser fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#f8fafc
+    style Puter Edge Cloud fill:#022c22,stroke:#10b981,stroke-width:2px,color:#f8fafc
+    style External APIs fill:#1e1b4b,stroke:#5865f2,stroke-width:2px,color:#f8fafc
+    style UI fill:#1e293b,stroke:#f59e0b,stroke-width:1px,color:#f8fafc
+    style Logic fill:#1e293b,stroke:#f59e0b,stroke-width:1px,color:#f8fafc
+    style LocalDB fill:#1e293b,stroke:#64748b,stroke-width:1px,color:#f8fafc
+```
+
+---
+
 ## ✨ Features
 
 * **Freestyle Signal Composer**: Draft and edit your signal messages in a clean, Space Mono code editor. Includes quick pre-filled preset pills for trading pairs, directions, and risk parameters.
