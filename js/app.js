@@ -82,6 +82,17 @@ async function pullData() {
     }
     
     var cloud = JSON.parse(val);
+    
+    // Safety Guard: If local has trade logs but cloud database is empty,
+    // do not pull/overwrite. Instead, immediately push local data to cloud.
+    var cloudHasTrades = cloud.trades && cloud.trades.length > 0;
+    var localHasTrades = S.trades && S.trades.length > 0;
+    if (localHasTrades && !cloudHasTrades) {
+      console.log('Safety Guard: Local trades found but cloud is empty. Pushing local to cloud.');
+      await pushData();
+      return;
+    }
+    
     var localLast = parseInt(localStorage.getItem('txbt_last_updated') || '0');
     
     if (cloud.lastUpdated && cloud.lastUpdated > localLast) {
