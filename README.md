@@ -27,7 +27,7 @@ Since the application is built as a static client-side web application, you can 
 2. Under **Build and deployment**, set the source to **Deploy from a branch**.
 3. Select the `main` branch and `/ (root)` folder, then click **Save**.
 4. GitHub will deploy your site. Your permanent URL will be:  
-   `https://<your-username>.github.io/triggerxbt-signals/`
+   `https://<your-username>.github.io/Discord-Signals-Bot/`
 
 ### 2. Local Execution
 Since Puter.js requires a secure web context for authentication and cloud syncing, running the page directly by double-clicking `index.html` (which uses the `file://` protocol) is blocked.
