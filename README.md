@@ -31,19 +31,19 @@ The following diagram illustrates how data flows securely within the TRIGGERXBT 
 
 ```mermaid
 graph TD
-    subgraph Client Browser [Client-Side App (User Sandbox)]
-        UI[Freestyle Signal Composer & Trade Journal]
-        Logic[JS App Controller (app.js, journal.js)]
-        LocalDB[(Browser LocalStorage)]
+    subgraph ClientBrowser ["Client-Side App (User Sandbox)"]
+        UI["Freestyle Signal Composer & Trade Journal"]
+        Logic["JS App Controller (app.js, journal.js)"]
+        LocalDB[("Browser LocalStorage")]
     end
 
-    subgraph Puter Edge Cloud [Puter.js Serverless Services]
-        PuterAuth[Puter Secure Auth]
-        PuterKV[(Puter Key-Value Store)]
+    subgraph PuterCloud ["Puter.js Serverless Services"]
+        PuterAuth["Puter Secure Auth"]
+        PuterKV[("Puter Key-Value Store")]
     end
 
-    subgraph External APIs [External Endpoints]
-        DiscordAPI[Discord API Webhook Servers]
+    subgraph ExternalAPIs ["External Endpoints"]
+        DiscordAPI["Discord API Webhook Servers"]
     end
 
     UI --> Logic
@@ -52,9 +52,9 @@ graph TD
     Logic <--> PuterKV
     Logic -- Broadcast Signals --> DiscordAPI
 
-    style Client Browser fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#f8fafc
-    style Puter Edge Cloud fill:#022c22,stroke:#10b981,stroke-width:2px,color:#f8fafc
-    style External APIs fill:#1e1b4b,stroke:#5865f2,stroke-width:2px,color:#f8fafc
+    style ClientBrowser fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#f8fafc
+    style PuterCloud fill:#022c22,stroke:#10b981,stroke-width:2px,color:#f8fafc
+    style ExternalAPIs fill:#1e1b4b,stroke:#5865f2,stroke-width:2px,color:#f8fafc
     style UI fill:#1e293b,stroke:#f59e0b,stroke-width:1px,color:#f8fafc
     style Logic fill:#1e293b,stroke:#f59e0b,stroke-width:1px,color:#f8fafc
     style LocalDB fill:#1e293b,stroke:#64748b,stroke-width:1px,color:#f8fafc
