@@ -30,7 +30,15 @@ Since the application is built as a static client-side web application, you can 
    `https://<your-username>.github.io/triggerxbt-signals/`
 
 ### 2. Local Execution
-You can also run the application offline on your PC by double-clicking `index.html`. It runs directly under the `file://` protocol with full features.
+Since Puter.js requires a secure web context for authentication and cloud syncing, running the page directly by double-clicking `index.html` (which uses the `file://` protocol) is blocked.
+
+To run the application locally from the source files, serve it using a simple development web server:
+1. Open terminal/command prompt in the project folder.
+2. Run a simple server using `npx`:
+   ```bash
+   npx http-server
+   ```
+3. Open the provided address (usually `http://localhost:8080`) in your web browser.
 
 ---
 
